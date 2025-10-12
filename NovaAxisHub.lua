@@ -1,19 +1,16 @@
--- 🎮 UNIVERSAL LOADER SCRIPT FOR ROBLOX
-print("🌀 Universal Loader started...")
-
--- 📍 Get current game ID
+-- Get current game ID
 local CurrentPlaceId = game.PlaceId
 print("📊 Current game ID:", CurrentPlaceId)
 
--- 🎯 Target game IDs
+-- Target game IDs
 local TARGET_PLACE_1 = 77782632203916  -- Steal A Femboy
 local TARGET_PLACE_2 = 129422765492183 -- 99 Nights In The Forest
 
--- 🧩 Script URLs
+-- Script URLs
 local URL_FEMBOY = "https://raw.githubusercontent.com/NovaAxis/Scripts/refs/heads/main/StealAFemboy.lua"
 local URL_FOREST = "https://raw.githubusercontent.com/NovaAxis/Scripts/refs/heads/main/S99NightsInTheForest.lua"
 
--- ⚙️ Safe load & execute
+-- Safe load & execute
 local function LoadAndRun(url, name)
 	print("🔄 Loading script:", name)
 	
@@ -41,7 +38,7 @@ local function LoadAndRun(url, name)
 	end
 end
 
--- 🎯 MAIN LOGIC
+-- Main Logic
 if CurrentPlaceId == TARGET_PLACE_1 then
 	print("🎯 Detected game: Steal A Femboy")
 	LoadAndRun(URL_FEMBOY, "Steal A Femboy")
