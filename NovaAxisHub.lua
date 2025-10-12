@@ -10,8 +10,8 @@ local TARGET_PLACE_1 = 77782632203916  -- Steal A Femboy
 local TARGET_PLACE_2 = 129422765492183 -- 99 Nights In The Forest
 
 -- 🧩 Script URLs
-local URL_FEMBOY = "https://raw.githubusercontent.com/AMIRTIMCAT/Scripts/refs/heads/main/StealAFemboy.lua"
-local URL_FOREST = "https://raw.githubusercontent.com/AMIRTIMCAT/Scripts/refs/heads/main/S99NightsInTheForest.lua"
+local URL_FEMBOY = "https://raw.githubusercontent.com/NovaAxis/Scripts/refs/heads/main/StealAFemboy.lua"
+local URL_FOREST = "https://raw.githubusercontent.com/NovaAxis/Scripts/refs/heads/main/S99NightsInTheForest.lua"
 
 -- ⚙️ Safe load & execute
 local function LoadAndRun(url, name)
