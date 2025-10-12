@@ -550,15 +550,15 @@ local InfoSection2 = InfoTab:NewSection({
     Position = "Left"
 })
 
-InfoSection2:NewTitle('⚡ Femboy Stealer Script')
-InfoSection2:NewTitle('📦 Version: 3.1')
+InfoSection2:NewTitle('💫 NovaAxis | Hub Script')
+InfoSection2:NewTitle('📦 Version: 3.9')
 InfoSection2:NewTitle('')
-InfoSection2:NewTitle('👨‍💻 Created by AMIRTIMCAT')
+InfoSection2:NewTitle('👨‍💻 Created by NovaAxis')
 
 InfoSection2:NewButton({
     Title = "🔗 GitHub",
     Callback = function()
-        setclipboard("github.com/AMIRTIMCAT")
+        setclipboard("github.com/NovaAxis")
         Notification.new({
             Title = "✅ Copied",
             Description = "GitHub link copied!",
