@@ -16,7 +16,7 @@ local autoClaimDelay = 5
 
 -- Show initial notification
 Notification.new({
-    Title = "Money Claim",
+    Title = "💫 NovaAxis | Hub",
     Description = "UI Loaded Successfully!",
     Duration = 3,
     Icon = "rbxassetid://7733960981"
@@ -65,7 +65,7 @@ local Windows = NothingLibrary.new({
     Description = "99 Nights In The Forest",
     Keybind = Enum.KeyCode.RightShift,
     Logo = '',
-    BrandText = "NovaAxis | HUB"
+    BrandText = "💫 NovaAxis | Hub"
 })
 
 -- Create Main Tab
@@ -128,29 +128,29 @@ end
 
 -- Info Tab
 local InfoTab = Windows:NewTab({
-    Title = "Info",
+    Title = "ℹ️ Info",
     Description = "Information & Credits",
     Icon = "rbxassetid://7733764088"
 })
 
 local InfoSection = InfoTab:NewSection({
-    Title = "Information",
+    Title = "📋 Information",
     Icon = "rbxassetid://7733764088",
     Position = "Left"
 })
 
-InfoSection:NewTitle('Money Claim Script')
-InfoSection:NewTitle('Version: 2.0')
-InfoSection:NewTitle('Game: 99 Nights In The Forest')
+InfoSection:NewTitle('💫 NovaAxis | Hub Script')
+InfoSection:NewTitle('📦 Version: 1.7')
+InfoSection:NewTitle('Game: [🎃] Steal 99 Nights in the Forest 🔦')
 InfoSection:NewTitle('')
-InfoSection:NewTitle('Created by AMIRTIMCAT')
+InfoSection:NewTitle('👨‍💻 Created by NovaAxis')
 
 InfoSection:NewButton({
-    Title = "GitHub",
+    Title = "🔗 GitHub",
     Callback = function()
-        setclipboard("github.com/AMIRTIMCAT")
+        setclipboard("github.com/NovaAxis")
         Notification.new({
-            Title = "Copied",
+            Title = "✅ Copied",
             Description = "GitHub link copied to clipboard",
             Duration = 3,
             Icon = "rbxassetid://7733960981"
@@ -159,16 +159,16 @@ InfoSection:NewButton({
 })
 
 local HelpSection = InfoTab:NewSection({
-    Title = "How to Use",
+    Title = "❓ How to Use",
     Icon = "rbxassetid://7743869054",
     Position = "Right"
 })
 
-HelpSection:NewTitle('1. Set amount with slider')
-HelpSection:NewTitle('2. Click Claim Money')
-HelpSection:NewTitle('3. Or use Quick Claim buttons')
+HelpSection:NewTitle('1️⃣ Set amount with slider')
+HelpSection:NewTitle('2️⃣ Click Claim Money')
+HelpSection:NewTitle('3️⃣ Or use Quick Claim buttons')
 HelpSection:NewTitle('')
-HelpSection:NewTitle('Press Right Shift to toggle UI')
+HelpSection:NewTitle('⌨️ Press Right Shift to toggle UI')
 
 -- Initialization
 print("✅ Money Claim UI loaded successfully!")
