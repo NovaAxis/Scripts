@@ -7,5 +7,5 @@
 
 ### Global load
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/AMIRTIMCAT/Scripts/refs/heads/main/NovaAxisHub.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/NovaAxis/Scripts/refs/heads/main/NovaAxisHub.lua"))()
 ```
