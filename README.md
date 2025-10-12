@@ -1,4 +1,4 @@
-##📘 About This Project
+## 📘 About This Project
 -  This project was created for educational purposes only.
 -  It demonstrates how to work with Roblox Lua, user interfaces (UI), and automated gameplay scripts.
 
