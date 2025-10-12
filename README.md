@@ -9,3 +9,6 @@
 ```lua
 loadstring(game:HttpGet("https://raw.githubusercontent.com/NovaAxis/Scripts/refs/heads/main/NovaAxisHub.lua"))()
 ```
+
+### This code is for educational purposes only and is not malicious software (malware)."
+​"For educational use only. This project contains no exploits or harmful code."
