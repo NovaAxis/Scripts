@@ -586,7 +586,7 @@ BypassSection:AddButton({
 
 BypassSection:AddParagraph({
     Title = "⚠️ Important",
-    Content = "Run this if you experience kicks or detection issues."
+    Content = "Run it if you have problems with kicks and detection."
 });
 
 -- Auto Steal Section (Left)
