@@ -1,192 +1,420 @@
+--[[
+    💫 NovaAxis Hub - 99 Nights In The Forest
+    
+    Author: NovaAxis
+    Version: 2.5
+    
+    Press Left Alt to open / close
+]]
+
+local Compkiller = loadstring(game:HttpGet("https://raw.githubusercontent.com/4lpaca-pin/CompKiller/refs/heads/main/src/source.luau"))();
+
+-- Services
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local localPlayer = Players.LocalPlayer
+-- Player
+local player = Players.LocalPlayer
 
--- Создаем GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "BaseLockGUI"
-screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+-- Variables
+local claimAmount = 100
+local autoClaim = false
+local autoClaimActive = false
+local autoClaimDelay = 5
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 200, 0, 80)
-mainFrame.Position = UDim2.new(1, -220, 1, -100) -- Внизу справа
-mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-mainFrame.BorderSizePixel = 0
-mainFrame.Parent = screenGui
+-- Create Notification
+local Notifier = Compkiller.newNotify();
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = mainFrame
+-- Create Config Manager
+local ConfigManager = Compkiller:ConfigManager({
+    Directory = "NovaAxis-99Nights",
+    Config = "Default-Config"
+});
 
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(80, 80, 80)
-stroke.Thickness = 2
-stroke.Parent = mainFrame
+-- Loading UI
+Compkiller:Loader("rbxassetid://7733960981", 2.5).yield();
 
--- Заголовок
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Position = UDim2.new(0, 0, 0, 0)
-title.BackgroundTransparency = 1
-title.Text = "Auto Lock Bases"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextScaled = true
-title.Font = Enum.Font.GothamBold
-title.Parent = mainFrame
+-- Creating Window
+local Window = Compkiller.new({
+    Name = "💫 NOVAAXIS HUB",
+    Keybind = "LeftAlt",
+    Logo = "rbxassetid://7733960981",
+    Scale = Compkiller.Scale.Window,
+    TextSize = 15,
+});
 
--- Toggle Switch
-local toggleFrame = Instance.new("Frame")
-toggleFrame.Size = UDim2.new(0, 60, 0, 30)
-toggleFrame.Position = UDim2.new(0.5, -30, 1, -40)
-toggleFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-toggleFrame.BorderSizePixel = 0
-toggleFrame.Parent = mainFrame
+-- Welcome Notification
+Notifier.new({
+    Title = "💫 NovaAxis Hub",
+    Content = "Successfully loaded for 99 Nights In The Forest!",
+    Duration = 5,
+    Icon = "rbxassetid://7733960981"
+});
 
-local toggleCorner = Instance.new("UICorner")
-toggleCorner.CornerRadius = UDim.new(0, 15)
-toggleCorner.Parent = toggleFrame
+-- Watermark
+local Watermark = Window:Watermark();
 
-local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(0, 26, 0, 26)
-toggleButton.Position = UDim2.new(0, 2, 0, 2)
-toggleButton.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-toggleButton.BorderSizePixel = 0
-toggleButton.Text = ""
-toggleButton.Parent = toggleFrame
+Watermark:AddText({
+    Icon = "user",
+    Text = "NovaAxis",
+});
 
-local buttonCorner = Instance.new("UICorner")
-buttonCorner.CornerRadius = UDim.new(0, 13)
-buttonCorner.Parent = toggleButton
+Watermark:AddText({
+    Icon = "clock",
+    Text = Compkiller:GetDate(),
+});
 
--- Переменные
-local isEnabled = false
-local lockDebounce = false
+local Time = Watermark:AddText({
+    Icon = "timer",
+    Text = "TIME",
+});
 
--- Функция для плавного перемещения тоггла
-local function animateToggle(state)
-    local goal = {}
-    if state then
-        goal.Position = UDim2.new(1, -28, 0, 2)
-        toggleFrame.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-    else
-        goal.Position = UDim2.new(0, 2, 0, 2)
-        toggleFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    end
-    
-    local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(toggleButton, tweenInfo, goal)
-    tween:Play()
-end
-
--- Функция блокировки базы (исправленная)
-local function lockBase(base)
-    local lockAttachment = base:FindFirstChild("Lock")
-    if lockAttachment then
-        -- Ищем LockAttachment (может быть BoolValue, NumberValue, или другой тип)
-        local lock = lockAttachment:FindFirstChild("LockAttachment")
-        local touchInterest = lockAttachment:FindFirstChild("TounchInterest")
-        
-        if lock then
-            -- Пробуем разные варианты блокировки
-            if lock:IsA("BoolValue") then
-                lock.Value = true
-            elseif lock:IsA("NumberValue") then
-                lock.Value = 1
-            elseif lock:IsA("StringValue") then
-                lock.Value = "true"
-            elseif lock:IsA("IntValue") then
-                lock.Value = 1
-            else
-                -- Если это Attachment или другой объект, пробуем отключить
-                if lock:IsA("Attachment") then
-                    lock.Visible = false
-                end
-            end
-        end
-        
-        -- Обрабатываем TouchInterest
-        if touchInterest then
-            if touchInterest:IsA("ClickDetector") then
-                touchInterest.MaxActivationDistance = 0
-            elseif touchInterest:IsA("BoolValue") then
-                touchInterest.Value = false
-            else
-                touchInterest.Enabled = false
-            end
-        end
-    end
-end
-
--- Функция проверки и блокировки баз
-local function checkAndLockBases()
-    if not isEnabled or lockDebounce then return end
-    
-    lockDebounce = true
-    
-    for i = 1, 8 do
-        local baseName = "Base" .. i
-        local base = workspace.Bases:FindFirstChild(baseName)
-        
-        if base then
-            local config = base:FindFirstChild("Configuration")
-            if config then
-                local playerValue = config:FindFirstChild("Player")
-                if playerValue and playerValue:IsA("ObjectValue") and playerValue.Value then
-                    -- Если это база текущего игрока - блокируем
-                    if playerValue.Value == localPlayer then
-                        lockBase(base)
-                        print("Заблокирована база: " .. baseName)
-                    end
-                end
-            end
-        end
-    end
-    
-    wait(0.5) -- Задержка против спама
-    lockDebounce = false
-end
-
--- Обработчик клика по тогглу
-toggleButton.MouseButton1Click:Connect(function()
-    isEnabled = not isEnabled
-    animateToggle(isEnabled)
-    
-    if isEnabled then
-        print("Auto Lock включен")
-        -- Сразу проверяем базы при включении
-        checkAndLockBases()
-    else
-        print("Auto Lock выключен")
+task.spawn(function()
+    while true do task.wait()
+        Time:SetText(Compkiller:GetTimeNow());
     end
 end)
 
--- Функция для исследования структуры Lock (для отладки)
-local function debugLockStructure()
-    for i = 1, 8 do
-        local baseName = "Base" .. i
-        local base = workspace.Bases:FindFirstChild(baseName)
-        if base then
-            local lockAttachment = base:FindFirstChild("Lock")
-            if lockAttachment then
-                print("Структура Lock для " .. baseName .. ":")
-                for _, child in ipairs(lockAttachment:GetChildren()) do
-                    print("  " .. child.Name .. " (" .. child.ClassName .. ")")
-                end
-            end
+Watermark:AddText({
+    Icon = "activity",
+    Text = "v2.5",
+});
+
+-- Claim Money Function
+local function executeClaim(amount)
+    if not amount or amount <= 0 then
+        Notifier.new({
+            Title = "❌ Error",
+            Content = "Invalid amount entered!",
+            Duration = 3,
+            Icon = "rbxassetid://7733964719"
+        });
+        return
+    end
+    
+    local success, result = pcall(function()
+        local args = {
+            "Money",
+            amount
+        }
+        ReplicatedStorage:WaitForChild("ClaimReward"):FireServer(unpack(args))
+    end)
+    
+    if success then
+        Notifier.new({
+            Title = "✅ Success",
+            Content = "Claimed $" .. tostring(amount) .. "!",
+            Duration = 3,
+            Icon = "rbxassetid://7733960981"
+        });
+    else
+        Notifier.new({
+            Title = "❌ Error",
+            Content = "Failed to claim money",
+            Duration = 3,
+            Icon = "rbxassetid://7733964719"
+        });
+    end
+end
+
+-- Auto Claim Loop
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if autoClaim and not autoClaimActive then
+            autoClaimActive = true
+            executeClaim(claimAmount)
+            task.wait(autoClaimDelay)
+            autoClaimActive = false
         end
     end
-end
+end)
 
--- Запускаем отладку при старте
-wait(2)
-debugLockStructure()
+-- Creating Main Category
+Window:DrawCategory({
+    Name = "💰 Money Farm"
+});
 
--- Постоянная проверка баз когда включено
-while true do
-    if isEnabled then
-        checkAndLockBases()
+-- Main Tab
+local MainTab = Window:DrawTab({
+    Name = "Main Features",
+    Icon = "dollar-sign",
+    EnableScrolling = true
+});
+
+-- Claim Section (Left)
+local ClaimSection = MainTab:DrawSection({
+    Name = "💵 Claim Money",
+    Position = 'left'
+});
+
+-- Claim Amount Slider
+ClaimSection:AddSlider({
+    Name = "Claim Amount",
+    Min = 100,
+    Max = 100000,
+    Default = 100,
+    Round = 0,
+    Flag = "ClaimAmount",
+    Callback = function(value)
+        claimAmount = value
     end
-    wait(1) -- Проверяем каждую секунду
-end
+});
+
+-- Main Claim Button
+ClaimSection:AddButton({
+    Name = "💰 Claim Money",
+    Callback = function()
+        executeClaim(claimAmount)
+    end
+});
+
+ClaimSection:AddParagraph({
+    Title = "ℹ️ Info",
+    Content = "Use the slider to set the amount, then click the button to claim money."
+});
+
+-- Auto Claim Section (Left)
+local AutoSection = MainTab:DrawSection({
+    Name = "🔄 Auto Claim",
+    Position = 'left'
+});
+
+local AutoToggle = AutoSection:AddToggle({
+    Name = "Enable Auto Claim",
+    Flag = "AutoClaim",
+    Default = false,
+    Callback = function(value)
+        autoClaim = value
+        if value then
+            Notifier.new({
+                Title = "✅ Enabled",
+                Content = "Auto Claim is now active!",
+                Duration = 3,
+                Icon = "rbxassetid://7733960981"
+            });
+        else
+            Notifier.new({
+                Title = "⏸️ Disabled",
+                Content = "Auto Claim has been stopped.",
+                Duration = 3,
+                Icon = "rbxassetid://7733779610"
+            });
+        end
+    end
+});
+
+AutoSection:AddSlider({
+    Name = "Auto Claim Delay (seconds)",
+    Min = 1,
+    Max = 30,
+    Default = 5,
+    Round = 0,
+    Flag = "AutoClaimDelay",
+    Callback = function(value)
+        autoClaimDelay = value
+    end
+});
+
+AutoSection:AddParagraph({
+    Title = "⚡ How it works",
+    Content = "When enabled, the script will automatically claim the set amount every X seconds."
+});
+
+-- Quick Claim Section (Right)
+local QuickSection = MainTab:DrawSection({
+    Name = "⚡ Quick Claim",
+    Position = 'right'
+});
+
+QuickSection:AddButton({
+    Name = "💵 Claim $100",
+    Callback = function()
+        executeClaim(100)
+    end
+});
+
+QuickSection:AddButton({
+    Name = "💵 Claim $500",
+    Callback = function()
+        executeClaim(500)
+    end
+});
+
+QuickSection:AddButton({
+    Name = "💰 Claim $1,000",
+    Callback = function()
+        executeClaim(1000)
+    end
+});
+
+QuickSection:AddButton({
+    Name = "💰 Claim $5,000",
+    Callback = function()
+        executeClaim(5000)
+    end
+});
+
+QuickSection:AddButton({
+    Name = "💎 Claim $10,000",
+    Callback = function()
+        executeClaim(10000)
+    end
+});
+
+QuickSection:AddButton({
+    Name = "💎 Claim $50,000",
+    Callback = function()
+        executeClaim(50000)
+    end
+});
+
+QuickSection:AddButton({
+    Name = "💎 Claim $100,000",
+    Callback = function()
+        executeClaim(100000)
+    end
+});
+
+QuickSection:AddParagraph({
+    Title = "📌 Quick Access",
+    Content = "Use these buttons for instant claims of preset amounts."
+});
+
+-- Info Section (Right)
+local InfoSection = MainTab:DrawSection({
+    Name = "ℹ️ Information",
+    Position = 'right'
+});
+
+InfoSection:AddParagraph({
+    Title = "💫 NovaAxis Hub",
+    Content = "Version: 2.5\nGame: 99 Nights In The Forest\nCreated by: NovaAxis"
+});
+
+InfoSection:AddButton({
+    Name = "📋 Copy GitHub",
+    Callback = function()
+        setclipboard("github.com/NovaAxis")
+        Notifier.new({
+            Title = "✅ Copied",
+            Content = "GitHub link copied to clipboard!",
+            Duration = 3,
+            Icon = "rbxassetid://7733960981"
+        });
+    end
+});
+
+InfoSection:AddParagraph({
+    Title = "⌨️ Controls",
+    Content = "Press Left Alt to toggle UI\nUse slider or quick buttons to claim money"
+});
+
+-- Misc Category
+Window:DrawCategory({
+    Name = "⚙️ Settings"
+});
+
+-- Settings Tab
+local SettingTab = Window:DrawTab({
+    Icon = "settings",
+    Name = "UI Settings",
+    Type = "Single",
+    EnableScrolling = true
+});
+
+local Settings = SettingTab:DrawSection({
+    Name = "🎨 UI Customization",
+});
+
+Settings:AddToggle({
+    Name = "Always Show Frame",
+    Default = false,
+    Flag = "AlwaysShowFrame",
+    Callback = function(v)
+        Window.AlwayShowTab = v;
+    end,
+});
+
+Settings:AddColorPicker({
+    Name = "Highlight Color",
+    Default = Compkiller.Colors.Highlight,
+    Flag = "HighlightColor",
+    Callback = function(v)
+        Compkiller.Colors.Highlight = v;
+        Compkiller:RefreshCurrentColor();
+    end,
+});
+
+Settings:AddColorPicker({
+    Name = "Toggle Color",
+    Default = Compkiller.Colors.Toggle,
+    Flag = "ToggleColor",
+    Callback = function(v)
+        Compkiller.Colors.Toggle = v;
+        Compkiller:RefreshCurrentColor(v);
+    end,
+});
+
+Settings:AddColorPicker({
+    Name = "Background Color",
+    Default = Compkiller.Colors.BGDBColor,
+    Flag = "BackgroundColor",
+    Callback = function(v)
+        Compkiller.Colors.BGDBColor = v;
+        Compkiller:RefreshCurrentColor(v);
+    end,
+});
+
+Settings:AddButton({
+    Name = "Get Theme",
+    Callback = function()
+        print(Compkiller:GetTheme())
+        
+        Notifier.new({
+            Title = "✅ Theme Copied",
+            Content = "Theme color copied to clipboard!",
+            Duration = 5,
+            Icon = "rbxassetid://7733960981"
+        });
+    end,
+});
+
+-- Theme Tab
+local ThemeTab = Window:DrawTab({
+    Icon = "paintbrush",
+    Name = "Themes",
+    Type = "Single"
+});
+
+ThemeTab:DrawSection({
+    Name = "🎨 UI Themes"
+}):AddDropdown({
+    Name = "Select Theme",
+    Default = "Default",
+    Flag = "Theme",
+    Values = {
+        "Default",
+        "Dark Green",
+        "Dark Blue",
+        "Purple Rose",
+        "Skeet"
+    },
+    Callback = function(v)
+        Compkiller:SetTheme(v)
+    end,
+})
+
+-- Config Tab
+local ConfigUI = Window:DrawConfig({
+    Name = "Config",
+    Icon = "folder",
+    Config = ConfigManager
+});
+
+ConfigUI:Init();
+
+-- Initialization
+print("✅ NovaAxis Hub loaded successfully!")
+print("⌨️ Press Left Alt to toggle UI")
+print("💰 Game: 99 Nights In The Forest")
