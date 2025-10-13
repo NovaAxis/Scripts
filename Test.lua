@@ -80,18 +80,41 @@ local function animateToggle(state)
     tween:Play()
 end
 
--- Функция блокировки базы
+-- Функция блокировки базы (исправленная)
 local function lockBase(base)
     local lockAttachment = base:FindFirstChild("Lock")
     if lockAttachment then
+        -- Ищем LockAttachment (может быть BoolValue, NumberValue, или другой тип)
         local lock = lockAttachment:FindFirstChild("LockAttachment")
         local touchInterest = lockAttachment:FindFirstChild("TounchInterest")
         
         if lock then
-            lock.Value = true
+            -- Пробуем разные варианты блокировки
+            if lock:IsA("BoolValue") then
+                lock.Value = true
+            elseif lock:IsA("NumberValue") then
+                lock.Value = 1
+            elseif lock:IsA("StringValue") then
+                lock.Value = "true"
+            elseif lock:IsA("IntValue") then
+                lock.Value = 1
+            else
+                -- Если это Attachment или другой объект, пробуем отключить
+                if lock:IsA("Attachment") then
+                    lock.Visible = false
+                end
+            end
         end
+        
+        -- Обрабатываем TouchInterest
         if touchInterest then
-            touchInterest.Enabled = false
+            if touchInterest:IsA("ClickDetector") then
+                touchInterest.MaxActivationDistance = 0
+            elseif touchInterest:IsA("BoolValue") then
+                touchInterest.Value = false
+            else
+                touchInterest.Enabled = false
+            end
         end
     end
 end
@@ -138,6 +161,27 @@ toggleButton.MouseButton1Click:Connect(function()
         print("Auto Lock выключен")
     end
 end)
+
+-- Функция для исследования структуры Lock (для отладки)
+local function debugLockStructure()
+    for i = 1, 8 do
+        local baseName = "Base" .. i
+        local base = workspace.Bases:FindFirstChild(baseName)
+        if base then
+            local lockAttachment = base:FindFirstChild("Lock")
+            if lockAttachment then
+                print("Структура Lock для " .. baseName .. ":")
+                for _, child in ipairs(lockAttachment:GetChildren()) do
+                    print("  " .. child.Name .. " (" .. child.ClassName .. ")")
+                end
+            end
+        end
+    end
+end
+
+-- Запускаем отладку при старте
+wait(2)
+debugLockStructure()
 
 -- Постоянная проверка баз когда включено
 while true do
