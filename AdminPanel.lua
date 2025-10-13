@@ -6,19 +6,25 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
 local localPlayer = Players.LocalPlayer
 
--- Parent (try PlayerGui first, then CoreGui)
-local parentGui
-if localPlayer and localPlayer:FindFirstChild("PlayerGui") then
-	parentGui = localPlayer:FindFirstChild("PlayerGui")
-else
-	parentGui = game:GetService("CoreGui")
+-- Parent (try PlayerGui first, then CoreGui if allowed)
+local parentGui = nil
+do
+	if localPlayer and localPlayer:FindFirstChild("PlayerGui") then
+		parentGui = localPlayer.PlayerGui
+	else
+		local success, coreGui = pcall(function() return game:GetService("CoreGui") end)
+		if success and coreGui then
+			parentGui = coreGui
+		else
+			warn("Cannot find a valid parent GUI for AdminPanel")
+			return
+		end
+	end
 end
 
--- Utility: safe find remote
 local function getRemote(pathParts)
 	local cur = ReplicatedStorage
 	for _,part in ipairs(pathParts) do
@@ -31,7 +37,6 @@ local function getRemote(pathParts)
 	return cur
 end
 
--- Debounce wrapper
 local function safeFire(remote, ...)
 	local ok, err = pcall(function()
 		remote:FireServer(...)
@@ -39,7 +44,6 @@ local function safeFire(remote, ...)
 	return ok, err
 end
 
--- Build GUI
 local function createGui()
 	-- remove old if exists
 	local existing = parentGui:FindFirstChild("ZoraxAdminPanel")
@@ -59,7 +63,6 @@ local function createGui()
 	Main.BorderSizePixel = 0
 	Main.Parent = ScreenGui
 
-	-- draggable
 	local uicorner = Instance.new("UICorner", Main); uicorner.CornerRadius = UDim.new(0,8)
 	local title = Instance.new("TextLabel", Main)
 	title.Size = UDim2.new(1,0,0,36)
@@ -74,7 +77,6 @@ local function createGui()
 	left.Position = UDim2.new(0,10,0,46)
 	left.BackgroundTransparency = 1
 
-	-- Tab buttons container
 	local tabNames = {"Home","Event","Safety","Other"}
 	local tabButtons = {}
 	for i,name in ipairs(tabNames) do
@@ -94,16 +96,13 @@ local function createGui()
 		tabButtons[name] = btn
 	end
 
-	-- Right content area
 	local content = Instance.new("Frame", Main)
 	content.Size = UDim2.new(1, -180, 1, -56)
 	content.Position = UDim2.new(0,170,0,46)
 	content.BackgroundTransparency = 1
 
-	-- create pages
 	local pages = {}
 
-	-- Home page
 	local home = Instance.new("Frame", content)
 	home.Size = UDim2.new(1,0,1,0)
 	home.BackgroundTransparency = 1
@@ -116,7 +115,6 @@ local function createGui()
 	homeLabel.TextColor3 = Color3.fromRGB(200,200,200)
 	pages["Home"] = home
 
-	-- Event page
 	local eventPage = Instance.new("Frame", content)
 	eventPage.Size = UDim2.new(1,0,1,0)
 	eventPage.BackgroundTransparency = 1
@@ -146,7 +144,6 @@ local function createGui()
 	eventStatus.Text = "Status: idle"
 	pages["Event"] = eventPage
 
-	-- Safety page
 	local safety = Instance.new("Frame", content)
 	safety.Size = UDim2.new(1,0,1,0)
 	safety.BackgroundTransparency = 1
@@ -176,7 +173,6 @@ local function createGui()
 		{"Ban Chat Message", "BanChatMessage"}
 	}
 
-	local y = 100
 	local actionStatus = Instance.new("TextLabel", safety)
 	actionStatus.Size = UDim2.new(1,0,0,20)
 	actionStatus.Position = UDim2.new(0,0,0,80)
@@ -184,14 +180,12 @@ local function createGui()
 	actionStatus.Text = "Awaiting action..."
 	actionStatus.TextColor3 = Color3.fromRGB(180,180,180)
 
-	for _,pair in ipairs(btnNames) do
+	for i,pair in ipairs(btnNames) do
 		local text, remoteName = pair[1], pair[2]
 		local btn = Instance.new("TextButton", safety)
 		btn.Size = UDim2.new(0,160,0,36)
-		btn.Position = UDim2.new(0, (y-100)/2 * 0, 0, y)
-		-- layout them in two columns:
-		local col = (_%2==1) and 0 or 1
-		local row = math.floor((_) / 2)
+		local col = (i%2 == 1) and 0 or 1
+		local row = math.floor((i-1) / 2)
 		btn.Position = UDim2.new(0, (col*170), 0, 100 + row*46)
 		btn.Text = text
 		btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
@@ -209,8 +203,7 @@ local function createGui()
 
 			local modFolder = ReplicatedStorage:FindFirstChild("APEvents")
 			if not modFolder then
-				-- try nested path
-				modFolder = ReplicatedStorage:FindFirstChild("APEvents") or getRemote({"APEvents"})
+				modFolder = getRemote({"APEvents"})
 			end
 			if not modFolder then
 				actionStatus.Text = "ReplicatedStorage.APEvents не найден."
@@ -229,21 +222,17 @@ local function createGui()
 				return
 			end
 
-			-- Fire remote with playerName (and attempt to also give userId if possible)
 			actionStatus.Text = "Calling "..remoteName.." for "..playerName.."..."
-			-- Try to resolve userid (best-effort)
 			local successUserId, userIdOrErr = pcall(function()
 				return Players:GetUserIdFromNameAsync(playerName)
 			end)
 
 			local firedOk, fireErr
 			if successUserId and type(userIdOrErr) == "number" then
-				-- try both: first userId then name (server may expect one or another)
 				firedOk, fireErr = pcall(function()
 					remote:FireServer(userIdOrErr)
 				end)
 				if not firedOk then
-					-- fallback to name
 					firedOk, fireErr = pcall(function()
 						remote:FireServer(playerName)
 					end)
@@ -264,7 +253,6 @@ local function createGui()
 
 	pages["Safety"] = safety
 
-	-- Other page (placeholder)
 	local other = Instance.new("Frame", content)
 	other.Size = UDim2.new(1,0,1,0)
 	other.BackgroundTransparency = 1
@@ -278,48 +266,34 @@ local function createGui()
 	otherLabel.TextColor3 = Color3.fromRGB(200,200,200)
 	pages["Other"] = other
 
-	-- tab switching function
 	local function switchTo(name)
 		for k,v in pairs(pages) do
-			if k == name then
-				v.Visible = true
-			else
-				v.Visible = false
-			end
+			v.Visible = (k == name)
 		end
-		-- highlight active button
 		for k,btn in pairs(tabButtons) do
-			if k == name then
-				btn.BackgroundColor3 = Color3.fromRGB(100,100,100)
-			else
-				btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
-			end
+			btn.BackgroundColor3 = (k == name) and Color3.fromRGB(100,100,100) or Color3.fromRGB(50,50,50)
 		end
 	end
 
-	-- connect tab buttons
 	for name,btn in pairs(tabButtons) do
 		btn.MouseButton1Click:Connect(function()
 			switchTo(name)
 		end)
 	end
 
-	-- Event button logic
 	eventBtn.MouseButton1Click:Connect(function()
-		local remote = getRemote({"Events", "RemoteEvent"}) or ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("RemoteEvent")
+		local remote = getRemote({"Events", "RemoteEvent"})
+		if not remote and ReplicatedStorage:FindFirstChild("Events") then
+			remote = ReplicatedStorage.Events:FindFirstChild("RemoteEvent")
+		end
 		if not remote then
 			eventStatus.Text = "RemoteEvent не найден в ReplicatedStorage.Events"
 			return
 		end
 		local ok, err = pcall(function() remote:FireServer() end)
-		if ok then
-			eventStatus.Text = "RemoteEvent:FireServer() отправлен"
-		else
-			eventStatus.Text = "Ошибка вызова RemoteEvent: "..tostring(err)
-		end
+		eventStatus.Text = ok and "RemoteEvent:FireServer() отправлен" or ("Ошибка вызова RemoteEvent: "..tostring(err))
 	end)
 
-	-- toggle visibility with P
 	local isVisible = true
 	local function setVisible(v)
 		isVisible = v
@@ -333,13 +307,10 @@ local function createGui()
 		end
 	end)
 
-	-- initial tab
 	switchTo("Home")
-
 	return ScreenGui
 end
 
--- create gui
 local ok, err = pcall(createGui)
 if not ok then
 	warn("Failed to create admin panel: "..tostring(err))
