@@ -568,7 +568,7 @@ StealSection:AddButton({
 
 StealSection:AddParagraph({
     Title = "ℹ️ How it works",
-    Content = "Teleports to target femboy, activates prompt, and returns to your base automatically."
+    Content = "Teleports to Femboys etc., steals them and automatically returns to your base."
 });
 
 -- Bypass Section (Left)
