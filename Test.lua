@@ -1,7 +1,7 @@
+-- 42
 -- NovaAxis Hub - Chest Farm Script
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
@@ -17,15 +17,30 @@ local settings = {
     currentChestIndex = 1
 }
 
+-- Anti-Kick
+if settings.antiKick then
+    for _, v in pairs(getconnections(player.Idled)) do
+        v:Disable()
+    end
+end
+
 -- Поиск сундуков
 local function getChests()
     local chests = {}
-    local chestsFolder = workspace.Map.Модели.Chests.Модели
+    local chestsFolder = workspace.Map:FindFirstChild("Модели")
     
-    for i = 1, 3 do
-        local chest = chestsFolder:FindFirstChild("Chest" .. i)
-        if chest then
-            table.insert(chests, chest)
+    if chestsFolder then
+        local chestsContainer = chestsFolder:FindFirstChild("Chests")
+        if chestsContainer then
+            local modeliFolder = chestsContainer:FindFirstChild("Модели")
+            if modeliFolder then
+                for i = 1, 3 do
+                    local chest = modeliFolder:FindFirstChild("Chest" .. i)
+                    if chest then
+                        table.insert(chests, chest)
+                    end
+                end
+            end
         end
     end
     
@@ -34,22 +49,17 @@ end
 
 -- Телепортация к сундуку
 local function teleportToChest(chest)
-    if chest and chest:FindFirstChild("HumanoidRootPart") then
-        rootPart.CFrame = chest.HumanoidRootPart.CFrame
-    elseif chest then
-        rootPart.CFrame = chest:GetPivot()
-    end
-end
-
--- Anti-Kick
-local antiKickConnection
-if settings.antiKick then
-    antiKickConnection = game:GetService("ScriptContext").Error:Connect(function()
-        return
-    end)
-    
-    for _, v in pairs(getconnections(player.Idled)) do
-        v:Disable()
+    if chest then
+        local targetCFrame
+        if chest:IsA("Model") then
+            targetCFrame = chest:GetPivot()
+        elseif chest:IsA("BasePart") then
+            targetCFrame = chest.CFrame
+        end
+        
+        if targetCFrame then
+            rootPart.CFrame = targetCFrame
+        end
     end
 end
 
@@ -210,7 +220,6 @@ task.spawn(function()
                 local chest = chests[settings.currentChestIndex]
                 teleportToChest(chest)
                 
-                -- Переключение на следующий сундук
                 settings.currentChestIndex = settings.currentChestIndex + 1
                 if settings.currentChestIndex > #chests then
                     settings.currentChestIndex = 1
