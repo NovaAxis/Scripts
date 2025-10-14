@@ -1,4 +1,4 @@
--- 52
+-- 42
 -- NovaAxis Hub - Chest Farm Script
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
