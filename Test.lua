@@ -48,19 +48,44 @@ local function getChests()
 end
 
 -- Телепортация к сундуку
-local function teleportToChest(chest)
-    if chest then
-        local targetCFrame
-        if chest:IsA("Model") then
-            targetCFrame = chest:GetPivot()
-        elseif chest:IsA("BasePart") then
-            targetCFrame = chest.CFrame
-        end
-        
-        if targetCFrame then
-            rootPart.CFrame = targetCFrame
+-- Поиск сундуков
+local function getChests()
+    local chests = {}
+    
+    -- Пробуем разные пути к сундукам
+    local paths = {
+        workspace.Map.Модели.Chests.Модели,
+        workspace.Map.Модели.Chests,
+        workspace.Map.Chests.Модели,
+        workspace.Map.Chests
+    }
+    
+    for _, path in ipairs(paths) do
+        if path then
+            for i = 1, 3 do
+                local chest = path:FindFirstChild("Chest" .. i)
+                if chest then
+                    table.insert(chests, chest)
+                    print("Найден сундук:", chest.Name, "по пути:", path:GetFullName())
+                end
+            end
+            if #chests > 0 then
+                break
+            end
         end
     end
+    
+    if #chests == 0 then
+        print("Сундуки не найдены! Проверяю всё workspace...")
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name:match("Chest%d") then
+                table.insert(chests, obj)
+                print("Найден сундук:", obj:GetFullName())
+            end
+        end
+    end
+    
+    return chests
 end
 
 -- Создание GUI
