@@ -1,92 +1,13 @@
--- 42
--- NovaAxis Hub - Chest Farm Script
+-- NovaAxis Hub - UI Only
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
 
 -- Настройки
 local settings = {
-    enabled = false,
-    jumpInterval = 0.5,
-    antiKick = true,
-    currentChestIndex = 1
+    enabled = false
 }
-
--- Anti-Kick
-if settings.antiKick then
-    for _, v in pairs(getconnections(player.Idled)) do
-        v:Disable()
-    end
-end
-
--- Поиск сундуков
-local function getChests()
-    local chests = {}
-    local chestsFolder = workspace.Map:FindFirstChild("Модели")
-    
-    if chestsFolder then
-        local chestsContainer = chestsFolder:FindFirstChild("Chests")
-        if chestsContainer then
-            local modeliFolder = chestsContainer:FindFirstChild("Модели")
-            if modeliFolder then
-                for i = 1, 3 do
-                    local chest = modeliFolder:FindFirstChild("Chest" .. i)
-                    if chest then
-                        table.insert(chests, chest)
-                    end
-                end
-            end
-        end
-    end
-    
-    return chests
-end
-
--- Телепортация к сундуку
--- Поиск сундуков
-local function getChests()
-    local chests = {}
-    
-    -- Пробуем разные пути к сундукам
-    local paths = {
-        workspace.Map.Модели.Chests.Модели,
-        workspace.Map.Модели.Chests,
-        workspace.Map.Chests.Модели,
-        workspace.Map.Chests
-    }
-    
-    for _, path in ipairs(paths) do
-        if path then
-            for i = 1, 3 do
-                local chest = path:FindFirstChild("Chest" .. i)
-                if chest then
-                    table.insert(chests, chest)
-                    print("Найден сундук:", chest.Name, "по пути:", path:GetFullName())
-                end
-            end
-            if #chests > 0 then
-                break
-            end
-        end
-    end
-    
-    if #chests == 0 then
-        print("Сундуки не найдены! Проверяю всё workspace...")
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj.Name:match("Chest%d") then
-                table.insert(chests, obj)
-                print("Найден сундук:", obj:GetFullName())
-            end
-        end
-    end
-    
-    return chests
-end
 
 -- Создание GUI
 local ScreenGui = Instance.new("ScreenGui")
@@ -223,48 +144,4 @@ ToggleButtonClick.MouseButton1Click:Connect(toggleFarm)
 -- Родитель GUI
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Автопрыжки
-local lastJump = 0
-RunService.Heartbeat:Connect(function()
-    if settings.enabled then
-        local currentTime = tick()
-        if currentTime - lastJump >= settings.jumpInterval then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            lastJump = currentTime
-        end
-    end
-end)
-
--- Основной цикл фарма
-task.spawn(function()
-    while true do
-        if settings.enabled then
-            local chests = getChests()
-            
-            if #chests > 0 then
-                local chest = chests[settings.currentChestIndex]
-                teleportToChest(chest)
-                
-                settings.currentChestIndex = settings.currentChestIndex + 1
-                if settings.currentChestIndex > #chests then
-                    settings.currentChestIndex = 1
-                end
-                
-                task.wait(0.1)
-            else
-                task.wait(1)
-            end
-        else
-            task.wait(0.5)
-        end
-    end
-end)
-
--- Обновление персонажа при респавне
-player.CharacterAdded:Connect(function(char)
-    character = char
-    humanoid = char:WaitForChild("Humanoid")
-    rootPart = char:WaitForChild("HumanoidRootPart")
-end)
-
-print("NovaAxis Hub загружен!")
+print("NovaAxis Hub UI загружен!")
