@@ -1,4 +1,3 @@
--- NovaAxis Hub - Auto Farm
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
