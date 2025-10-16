@@ -338,7 +338,7 @@ end)
 UserInputService.InputChanged:Connect(onInputChanged)
 
 DiscordButton.MouseButton1Click:Connect(function()
-    local discordUrl = "https://discord.gg/" .. KeySystemData.DiscordInvite
+    local discordUrl = "https://discord.gg/Eg98P4wf2V" .. KeySystemData.DiscordInvite
     
     if setclipboard then
         setclipboard(discordUrl)
