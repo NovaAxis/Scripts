@@ -5,14 +5,7 @@
     Toggle Key: LeftAlt
 ]]
 
--- ========== Load WindUI ==========
-local ok, WindUI = pcall(function()
-    return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
-end)
-
-if not ok or not WindUI then
-    error("WindUI not loaded")
-end
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
 -- ========== Services & player ==========
 local Players = game:GetService("Players")
