@@ -1,13 +1,13 @@
 --[[
     💫 NovaAxis Hub - Steal A Femboy (WindUI)
-    
     Author: NovaAxis
     Version: 5.0
+    
     Library: WindUI
 ]]
 
-local repo = "https://raw.githubusercontent.com/FootageSus/WindUI/main/"
-local Library = loadstring(game:HttpGet(repo .. "source.lua"))()
+-- Load WindUI Library
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
 -- Services
 local Workspace = game:GetService("Workspace")
@@ -464,12 +464,13 @@ end
 -- Creating Window
 local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
-    Author = "NovaAxis | v5.0",
-    Size = UDim2.fromOffset(580, 460),
+    Author = ".ftgs",
+    Size = UDim2.fromOffset(600, 480),
     KeyBind = Enum.KeyCode.LeftAlt,
+    Transparent = false,
+    Theme = "Dark",
     Folder = "NovaAxis-FemboySteal",
-    Config = "NovaAxis-Config",
-    Theme = "Dark"
+    ConfigFile = "NovaAxis-Config"
 })
 
 -- Welcome Notification
@@ -479,32 +480,18 @@ WindUI:Notify({
     Duration = 5
 })
 
--- Create Sections
-local MainSection = Window:Section({
-    Title = "🌸 Femboy Stealer",
-    Opened = true
-})
-
-local UtilitySection = Window:Section({
-    Title = "⚙️ Utilities",
-    Opened = true
-})
-
--- Create Tabs
-local MainTab = MainSection:Tab({
+-- Main Tab
+local Main = Window:Tab({
     Title = "Main Features",
-    Icon = "target",
-    Desc = "Instant & Auto Steal"
-})
-
-local UtilityTab = UtilitySection:Tab({
-    Title = "Utility",
-    Icon = "shield",
-    Desc = "Bypass & Movement"
+    Icon = "target"
 })
 
 -- Instant Steal Section
-MainTab:Button({
+Main:Section({
+    Title = "⚡ Instant Steal"
+})
+
+Main:Button({
     Title = "⚡ Execute Instant Steal",
     Desc = "Teleports to target, activates prompt, returns",
     Callback = function()
@@ -521,7 +508,7 @@ MainTab:Button({
     end
 })
 
-MainTab:Keybind({
+Main:Keybind({
     Title = "Quick Steal Hotkey",
     Desc = "Press to instantly execute steal",
     Default = Enum.KeyCode.F,
@@ -530,10 +517,12 @@ MainTab:Keybind({
     end
 })
 
-MainTab:Divider()
-
 -- Auto Steal Section
-MainTab:Toggle({
+Main:Section({
+    Title = "🔄 Auto Steal"
+})
+
+Main:Toggle({
     Title = "Enable Auto Steal",
     Desc = "Automatically steals femboys with delay",
     Default = false,
@@ -564,9 +553,9 @@ MainTab:Toggle({
     end
 })
 
-MainTab:Slider({
+Main:Slider({
     Title = "Auto Steal Delay",
-    Desc = "Delay between auto steal attempts",
+    Desc = "Delay between auto steal attempts (seconds)",
     Min = 1,
     Max = 60,
     Default = 5,
@@ -575,10 +564,12 @@ MainTab:Slider({
     end
 })
 
-MainTab:Divider()
-
 -- Settings Section
-MainTab:Slider({
+Main:Section({
+    Title = "⚙️ Settings"
+})
+
+Main:Slider({
     Title = "Prompt Timeout",
     Desc = "Maximum time to wait for prompt activation",
     Min = 1,
@@ -594,13 +585,14 @@ MainTab:Slider({
     end
 })
 
-MainTab:Divider()
-
 -- Target List Section
-MainTab:Paragraph({
-    Title = "🎯 Target List",
-    Desc = [[Detected Targets:
-• Any name with 'femboy'
+Main:Section({
+    Title = "🎯 Target List"
+})
+
+Main:Paragraph({
+    Title = "Detected Targets",
+    Desc = [[• Any name with 'femboy'
 • Roommate
 • Casual Astolfo
 • Chihiro Fujisaki
@@ -614,8 +606,18 @@ MainTab:Paragraph({
 • Rimuru]]
 })
 
--- Utility Tab - Bypass Section
-UtilityTab:Button({
+-- Utility Tab
+local Utility = Window:Tab({
+    Title = "Utility",
+    Icon = "shield"
+})
+
+-- Bypass Section
+Utility:Section({
+    Title = "🛡️ Anti-Cheat Bypass"
+})
+
+Utility:Button({
     Title = "🛡️ Activate Bypass",
     Desc = "Run if you experience kicks or detection",
     Callback = function()
@@ -623,10 +625,12 @@ UtilityTab:Button({
     end
 })
 
-UtilityTab:Divider()
-
 -- Movement Section
-UtilityTab:Toggle({
+Utility:Section({
+    Title = "🏃 Movement"
+})
+
+Utility:Toggle({
     Title = "Custom WalkSpeed",
     Desc = "Enable custom walk speed",
     Default = false,
@@ -663,7 +667,7 @@ UtilityTab:Toggle({
     end
 })
 
-UtilityTab:Slider({
+Utility:Slider({
     Title = "WalkSpeed Value",
     Desc = "Set custom walk speed value",
     Min = 16,
@@ -684,9 +688,7 @@ UtilityTab:Slider({
     end
 })
 
-UtilityTab:Divider()
-
-UtilityTab:Toggle({
+Utility:Toggle({
     Title = "Noclip",
     Desc = "Walk through walls",
     Default = false,
@@ -736,11 +738,13 @@ UtilityTab:Toggle({
     end
 })
 
-UtilityTab:Divider()
-
 -- Info Section
-UtilityTab:Paragraph({
-    Title = "ℹ️ Information",
+Utility:Section({
+    Title = "ℹ️ Information"
+})
+
+Utility:Paragraph({
+    Title = "About",
     Desc = [[💫 NovaAxis Hub
 Version: 5.0
 Game: Steal A Femboy
@@ -748,7 +752,7 @@ Created by: NovaAxis
 Library: WindUI]]
 })
 
-UtilityTab:Button({
+Utility:Button({
     Title = "📋 Copy GitHub",
     Desc = "Copy GitHub link to clipboard",
     Callback = function()
