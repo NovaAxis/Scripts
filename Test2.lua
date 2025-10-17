@@ -2,7 +2,6 @@
     💫 NovaAxis Hub - 99 Nights In The Forest
     Author: NovaAxis
     Version: 2.5
-    1
 ]]
 
 local WindUI
@@ -57,7 +56,6 @@ local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
     Author = "by NovaAxis",
     Folder = "NovaAxisHub",
-    Window.Icon:SetAnonymous(true) -- true or false
     
     HideSearchBar = true,
     
