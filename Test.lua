@@ -29,8 +29,12 @@ WindUI:AddTheme({
 WindUI:SetTheme("Nova Neon")
 
 
-local Tab = Window:Tab({
+local MainTab = Window:Tab({
     Title = "Main",
-    Icon = "home", -- optional
+    Icon = "zap", -- optional
     Locked = false,
+})
+        pcall(function() setclipboard("https://discord.gg/Eg98P4wf2V") end)
+        Notify({ Title = "✅ Copied", Content = "Discord invite copied to clipboard!", Duration = 3, Icon = "copy" })
+    end
 })
