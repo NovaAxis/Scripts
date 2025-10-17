@@ -1,6 +1,7 @@
 --========================================================--
--- 💫 NovaAxis Hub - WindUI v2 (Stable Fixed)
+-- 💫 NovaAxis Hub - WindUI v2 (Fixed Version)
 --========================================================--
+
 local success, WindUI = pcall(function()
     return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 end)
@@ -14,7 +15,13 @@ end
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
+
+if not player then
+    warn("❌ Player not found!")
+    return
+end
 
 --// Variables
 local claimAmount = 100
@@ -24,48 +31,67 @@ local autoClaimRunning = false
 
 --// Notification Helper
 local function Notify(title, content, icon)
-    WindUI:Notify({
-        Title = title,
-        Content = content,
-        Duration = 3,
-        Icon = icon or "bell"
-    })
+    if WindUI and WindUI.Notify then
+        WindUI:Notify({
+            Title = title,
+            Content = content,
+            Duration = 3,
+            Icon = icon or "bell"
+        })
+    end
 end
 
---// Config (Memory + Disk)
-local Config = {}
-Config.memory = {}
+--// Config (Memory Only)
+local Config = {
+    claimAmount = 100,
+    autoClaim = false,
+    autoClaimDelay = 5
+}
+
 local function SaveConfig()
-    Config.memory = {
-        claimAmount = claimAmount,
-        autoClaim = autoClaim,
-        autoClaimDelay = autoClaimDelay
-    }
+    Config.claimAmount = claimAmount
+    Config.autoClaim = autoClaim
+    Config.autoClaimDelay = autoClaimDelay
     Notify("💾 Config", "Saved settings to memory.", "save")
 end
 
 local function LoadConfig()
-    if not Config.memory or not Config.memory.claimAmount then
+    if Config and Config.claimAmount then
+        claimAmount = Config.claimAmount
+        autoClaim = Config.autoClaim
+        autoClaimDelay = Config.autoClaimDelay
+        Notify("✅ Config", "Loaded settings from memory.", "download")
+    else
         Notify("⚠️ Config", "No config found in memory.", "alert-circle")
-        return
     end
-    claimAmount = Config.memory.claimAmount
-    autoClaim = Config.memory.autoClaim
-    autoClaimDelay = Config.memory.autoClaimDelay
-    Notify("✅ Config", "Loaded settings from memory.", "download")
 end
 
 --// Claim Function
 local function ClaimMoney(amount)
-    local event = ReplicatedStorage:FindFirstChild("ClaimReward", true)
-    if not event then
-        Notify("❌ Error", "ClaimReward not found in ReplicatedStorage!", "x")
+    if not amount or amount <= 0 then
+        Notify("❌ Error", "Invalid claim amount!", "x")
         return
     end
-    pcall(function()
-        event:FireServer("Money", amount)
+
+    local event = ReplicatedStorage:FindFirstChild("ClaimReward", true)
+    if not event then
+        Notify("❌ Error", "ClaimReward event not found!", "x")
+        return
+    end
+
+    local success = pcall(function()
+        if event:IsA("RemoteEvent") then
+            event:FireServer("Money", amount)
+        elseif event:IsA("RemoteFunction") then
+            event:InvokeServer("Money", amount)
+        end
     end)
-    Notify("✅ Claimed", "Claimed $" .. tostring(amount), "check")
+
+    if success then
+        Notify("✅ Claimed", "Claimed $" .. tostring(amount), "check")
+    else
+        Notify("❌ Error", "Failed to claim money!", "x")
+    end
 end
 
 --// Auto Claim Thread
@@ -86,14 +112,21 @@ end)
 local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
     Icon = "sparkles",
-    Theme = "Dark", -- built-in theme to prevent nil 'Text'
+    Theme = "Dark",
     Size = UDim2.fromOffset(900, 600),
     SideBarWidth = 230,
     Resizable = true
 })
 
--- Accent override (Nova Neon)
-WindUI:SetAccent(Color3.fromRGB(120, 80, 255))
+if not Window then
+    warn("❌ Failed to create Window!")
+    return
+end
+
+-- Accent Color (Nova Neon)
+pcall(function()
+    WindUI:SetAccent(Color3.fromRGB(120, 80, 255))
+end)
 
 Window:SetToggleKey(Enum.KeyCode.LeftAlt)
 Notify("💫 NovaAxis Hub", "Loaded successfully!", "sparkles")
@@ -175,7 +208,7 @@ local QuickSec = Main:Section({
 
 for _, amt in ipairs({100, 500, 1000, 5000, 10000, 50000, 100000}) do
     QuickSec:Button({
-        Title = "💵 Claim $"..amt,
+        Title = "💵 Claim $" .. amt,
         Callback = function()
             ClaimMoney(amt)
         end
@@ -199,10 +232,12 @@ local UIsec = Settings:Section({
 UIsec:Colorpicker({
     Title = "Accent Color",
     Description = "Change UI accent color",
-    Default = Color3.fromRGB(120,80,255),
+    Default = Color3.fromRGB(120, 80, 255),
     Callback = function(color)
-        WindUI:SetAccent(color)
-        Notify("🎨 Theme", "Accent color updated", "palette")
+        pcall(function()
+            WindUI:SetAccent(color)
+            Notify("🎨 Theme", "Accent color updated", "palette")
+        end)
     end
 })
 
@@ -210,8 +245,10 @@ UIsec:Button({
     Title = "Get Theme Name",
     Description = "Copy 'Nova Neon' to clipboard",
     Callback = function()
-        pcall(function() setclipboard("Nova Neon") end)
-        Notify("✅ Copied", "Theme name copied to clipboard", "clipboard")
+        pcall(function()
+            setclipboard("Nova Neon")
+            Notify("✅ Copied", "Theme name copied to clipboard", "clipboard")
+        end)
     end
 })
 
@@ -257,15 +294,17 @@ local InfoSec = InfoTab:Section({
 
 InfoSec:Paragraph({
     Title = "About",
-    Content = "NovaAxis Hub — WindUI v2\nVersion 3.2 Stable\nAuthor: NovaAxis"
+    Content = "NovaAxis Hub — WindUI v2\nVersion 3.2 Stable (Fixed)\nAuthor: NovaAxis"
 })
 
 InfoSec:Button({
     Title = "🌐 Discord Server",
     Description = "Copy invite to clipboard",
     Callback = function()
-        pcall(function() setclipboard("https://discord.gg/Eg98P4wf2V") end)
-        Notify("✅ Discord", "Invite copied to clipboard", "link")
+        pcall(function()
+            setclipboard("https://discord.gg/Eg98P4wf2V")
+            Notify("✅ Discord", "Invite copied to clipboard", "link")
+        end)
     end
 })
 
