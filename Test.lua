@@ -1,5 +1,5 @@
 --[[ 
-    💫 NovaAxis Hub - Steal A Femboy (WindUI rewrite)
+    💫 NovaAxis Hub - Steal A Femboy (WindUI rewrite, bypass auto-enable)
     Author: NovaAxis (interface ported to WindUI)
     Version: 4.5 (UI rewritten)
     Notes: WindUI loaded from GitHub releases (latest)
@@ -46,7 +46,7 @@ local promptTimeout = 5
 -- Create a neon theme (Nova Neon: accent RGB(120,80,255))
 WindUI:AddTheme({
     Name = "Nova Neon",
-    Accent = Color3.fromRGB(120, 80, 255),            -- strong neon accent
+    Accent = Color3.fromRGB(120, 80, 255),
     Dialog = Color3.fromRGB(18, 18, 20),
     Outline = Color3.fromRGB(255, 255, 255),
     Text = Color3.fromRGB(230, 230, 230),
@@ -60,7 +60,6 @@ WindUI:SetTheme("Nova Neon")
 
 -- Notification helper
 local function Notify(opts)
-    -- opts: {Title, Content, Duration, Icon}
     WindUI:Notify({
         Title = opts.Title or "Notification",
         Content = opts.Content or "",
@@ -68,29 +67,6 @@ local function Notify(opts)
         Icon = opts.Icon or "activity"
     })
 end
-
--- Create Window
-local Window = WindUI:CreateWindow({
-    Title = "💫 NovaAxis Hub",
-    Icon = "sparkles",
-    Author = "NovaAxis",
-    Folder = "NovaAxis-FemboySteal",
-    Size = UDim2.fromOffset(780, 520),
-    MinSize = Vector2.new(640, 420),
-    Transparent = true,
-    Theme = "Nova Neon",
-    Resizable = true,
-    SideBarWidth = 220,
-    BackgroundImageTransparency = 0.45,
-})
-
--- Set default toggle key (LeftAlt)
-Window:SetToggleKey(Enum.KeyCode.LeftAlt)
-
--- Watermark / small top info (use Window.User or small tag)
--- WindUI supports User block; set anonymous label
--- (we'll create a small info tab instead as watermark equivalent)
-Notify({Title = "💫 NovaAxis Hub", Content = "Successfully loaded for Steal A Femboy!", Duration = 4, Icon = "sparkles"})
 
 -- -------------------------
 -- Utility functions (kept from original, unchanged behavior)
@@ -449,9 +425,36 @@ local function executeInstantSteal()
     isRunning = false
 end
 
+-- === AUTO-RUN BYPASS BEFORE UI CREATION ===
+-- Run bypass immediately so anti-cheat protections are disabled before anything else initializes.
+-- Use pcall to avoid blocking UI creation if bypass errors.
+pcall(function()
+    SafeExecute()
+end)
+
 -- -------------------------
 -- Build WindUI layout (Tabs, Sections, Elements)
 -- -------------------------
+
+-- Create Window
+local Window = WindUI:CreateWindow({
+    Title = "💫 NovaAxis Hub",
+    Icon = "sparkles",
+    Author = "NovaAxis",
+    Folder = "NovaAxis-FemboySteal",
+    Size = UDim2.fromOffset(780, 520),
+    MinSize = Vector2.new(640, 420),
+    Transparent = true,
+    Theme = "Nova Neon",
+    Resizable = true,
+    SideBarWidth = 220,
+    BackgroundImageTransparency = 0.45,
+})
+
+-- Set default toggle key (LeftAlt)
+Window:SetToggleKey(Enum.KeyCode.LeftAlt)
+
+Notify({Title = "💫 NovaAxis Hub", Content = "Successfully loaded for Steal A Femboy!", Duration = 4, Icon = "sparkles"})
 
 -- Main Category/Tab: Femboy Stealer
 local mainTab = Window:Tab({ Title = "Femboy Stealer", Icon = "target" })
@@ -520,13 +523,8 @@ settingsSection:Keybind({
     Desc = "Set quick steal hotkey",
     Value = "F",
     Callback = function(v)
-        -- v is a string (like "F"), set the window toggle key if desired
-        -- But for quick steal we want to bind to executeInstantSteal on press:
-        -- We'll set a KeyDown listener per selected key
         local successKey, code = pcall(function() return Enum.KeyCode[v] end)
         if successKey and code then
-            -- Listen for that key press
-            -- Disconnect previous if exists
             if _G.NovaAxisQuickStealConnection then
                 _G.NovaAxisQuickStealConnection:Disconnect()
                 _G.NovaAxisQuickStealConnection = nil
@@ -572,18 +570,9 @@ infoSection:Button({
     end
 })
 
--- Utility Tab (bypass, movement)
+-- Utility Tab (movement only; bypass removed from UI)
 local utilTab = Window:Tab({ Title = "Utility", Icon = "shield" })
-local bypassSec = utilTab:Section({ Title = "🛡️ Anti-Cheat Bypass", Icon = "shield" })
 local moveSec = utilTab:Section({ Title = "🏃 Movement", Icon = "footprints" })
-
-bypassSec:Button({
-    Title = "🛡️ Activate Bypass",
-    Callback = function()
-        SafeExecute()
-    end
-})
-bypassSec:Paragraph({ Title = "⚠️ Important", Content = "Run this if you experience kicks or detection issues." })
 
 -- Movement controls
 local walkSpeedEnabled = false
@@ -692,8 +681,6 @@ uiSec:Toggle({
     Title = "Always Show Frame",
     Default = false,
     Callback = function(v)
-        -- WindUI doesn't expose a direct AllwaysShowTab property in docs; we can set window transparency or other behaviours if needed.
-        -- For now we use this toggle to inform user (placeholder)
         if v then
             Notify({Title = "UI", Content = "Always Show Frame enabled (placeholder).", Duration = 2})
         else
@@ -706,7 +693,6 @@ uiSec:Colorpicker({
     Title = "Highlight Color",
     Default = Color3.fromRGB(120, 80, 255),
     Callback = function(v)
-        -- update theme accent dynamically (partial)
         WindUI:AddTheme({
             Name = "Nova Neon - Custom",
             Accent = v,
@@ -725,7 +711,6 @@ uiSec:Colorpicker({
 uiSec:Button({
     Title = "Get Theme",
     Callback = function()
-        -- Copy current theme name to clipboard (approx)
         pcall(function() setclipboard("Nova Neon") end)
         Notify({Title = "✅ Theme Copied", Content = "Theme name copied to clipboard!", Duration = 3})
     end
@@ -737,5 +722,5 @@ local cfgSec = configTab:Section({ Title = "Configs" })
 cfgSec:Paragraph({Title = "Config manager", Content = "WindUI provides config API; integrate here if you want persistent settings."})
 
 -- Final prints
-print("✅ NovaAxis Hub loaded (WindUI)")
+print("✅ NovaAxis Hub loaded (WindUI) — Anti-Cheat Bypass auto-enabled")
 print("⌨️ Press Left Alt to toggle UI")
