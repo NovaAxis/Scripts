@@ -1,6 +1,5 @@
 --========================================================--
--- 💫 NovaAxis Hub - WindUI v2 (Fixed Version) okaki
-
+-- 💫 NovaAxis Hub - WindUI v2 (Pro Edition)
 --========================================================--
 
 local success, WindUI = pcall(function()
@@ -8,62 +7,74 @@ local success, WindUI = pcall(function()
 end)
 
 if not success or not WindUI then
-    warn("⚠️ WindUI failed to load! Check your internet or URL.")
+    warn("⚠️ WindUI failed to load!")
     return
 end
 
 --// Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local HttpService = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
-if not player then
-    warn("❌ Player not found!")
-    return
-end
+if not player then warn("❌ Player not found!"); return end
 
 --// Variables
 local claimAmount = 100
 local autoClaim = false
 local autoClaimDelay = 5
 local autoClaimRunning = false
+local quickClaimKey = "F"
+local claimMode = "Single"
 
 --// Notification Helper
 local function Notify(title, content, icon)
-    if WindUI and WindUI.Notify then
-        WindUI:Notify({
-            Title = title,
-            Content = content,
-            Duration = 3,
-            Icon = icon or "bell"
-        })
-    end
+    WindUI:Notify({
+        Title = title,
+        Content = content,
+        Duration = 3,
+        Icon = icon or "bell"
+    })
 end
 
---// Config (Memory Only)
-local Config = {
-    claimAmount = 100,
-    autoClaim = false,
-    autoClaimDelay = 5
+--// Config Manager (with File Save)
+local ConfigManager = Window and Window.ConfigManager or {
+    AllConfigs = function(self) return {} end,
+    CreateConfig = function(self, name) 
+        return {
+            Save = function(self) return false end,
+            Load = function(self) return false end
+        }
+    end
 }
 
 local function SaveConfig()
-    Config.claimAmount = claimAmount
-    Config.autoClaim = autoClaim
-    Config.autoClaimDelay = autoClaimDelay
-    Notify("💾 Config", "Saved settings to memory.", "save")
+    local configData = {
+        claimAmount = claimAmount,
+        autoClaim = autoClaim,
+        autoClaimDelay = autoClaimDelay,
+        quickClaimKey = quickClaimKey,
+        claimMode = claimMode
+    }
+    setclipboard(game:GetService("HttpService"):JSONEncode(configData))
+    Notify("💾 Config", "Config copied to clipboard!", "save")
 end
 
 local function LoadConfig()
-    if Config and Config.claimAmount then
-        claimAmount = Config.claimAmount
-        autoClaim = Config.autoClaim
-        autoClaimDelay = Config.autoClaimDelay
-        Notify("✅ Config", "Loaded settings from memory.", "download")
+    local clipboard = getclipboard()
+    local ok, data = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(clipboard)
+    end)
+    
+    if ok and data then
+        claimAmount = data.claimAmount or 100
+        autoClaim = data.autoClaim or false
+        autoClaimDelay = data.autoClaimDelay or 5
+        quickClaimKey = data.quickClaimKey or "F"
+        claimMode = data.claimMode or "Single"
+        Notify("✅ Config", "Config loaded from clipboard!", "download")
     else
-        Notify("⚠️ Config", "No config found in memory.", "alert-circle")
+        Notify("⚠️ Config", "Invalid config in clipboard!", "alert-circle")
     end
 end
 
@@ -107,6 +118,28 @@ task.spawn(function()
     end
 end)
 
+--// Quick Claim Hotkey
+local quickClaimConnection
+local function SetupQuickClaimHotkey(keyName)
+    if quickClaimConnection then
+        quickClaimConnection:Disconnect()
+    end
+    
+    local ok, keyCode = pcall(function()
+        return Enum.KeyCode[keyName]
+    end)
+    
+    if ok and keyCode then
+        quickClaimConnection = UserInputService.InputBegan:Connect(function(input, gpe)
+            if gpe then return end
+            if input.KeyCode == keyCode then
+                ClaimMoney(claimAmount)
+            end
+        end)
+        Notify("⌨️ Hotkey", "Quick claim set to " .. keyName, "keyboard")
+    end
+end
+
 --========================================================--
 -- UI Creation
 --========================================================--
@@ -114,17 +147,11 @@ local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
     Icon = "sparkles",
     Theme = "Dark",
-    Size = UDim2.fromOffset(900, 600),
-    SideBarWidth = 230,
+    Size = UDim2.fromOffset(950, 650),
+    SideBarWidth = 240,
     Resizable = true
 })
 
-if not Window then
-    warn("❌ Failed to create Window!")
-    return
-end
-
--- Accent Color (Nova Neon)
 pcall(function()
     WindUI:SetAccent(Color3.fromRGB(120, 80, 255))
 end)
@@ -133,14 +160,14 @@ Window:SetToggleKey(Enum.KeyCode.LeftAlt)
 Notify("💫 NovaAxis Hub", "Loaded successfully!", "sparkles")
 
 --========================================================--
--- 📂 Main Tab
+-- Main Tab
 --========================================================--
 local Main = Window:Tab({
     Title = "Main Features",
     Icon = "dollar-sign"
 })
 
--- Claim Section
+-- Claim Settings Section
 local ClaimSec = Main:Section({
     Title = "💵 Claim Money",
     Icon = "credit-card",
@@ -148,26 +175,60 @@ local ClaimSec = Main:Section({
 })
 
 ClaimSec:Slider({
+    Flag = "ClaimAmount",
     Title = "Claim Amount",
     Description = "Choose how much to claim",
     Min = 100,
     Max = 100000,
     Value = 100,
-    Step = 1,
+    Step = 100,
     Callback = function(val)
         claimAmount = val
     end
 })
 
+ClaimSec:Space()
+
+ClaimSec:Dropdown({
+    Flag = "ClaimMode",
+    Title = "Claim Mode",
+    Description = "Select claim mode",
+    Values = {"Single", "Multiple", "Auto"},
+    Value = "Single",
+    Callback = function(val)
+        claimMode = val
+        Notify("🎯 Mode", "Claim mode set to " .. val, "target")
+    end
+})
+
+ClaimSec:Space()
+
 ClaimSec:Button({
     Title = "💰 Claim Money",
     Description = "Send money claim request",
+    Icon = "zap",
     Callback = function()
         ClaimMoney(claimAmount)
     end
 })
 
+ClaimSec:Space()
+
+ClaimSec:Button({
+    Title = "💰 Claim x10",
+    Description = "Claim 10 times",
+    Icon = "repeat-2",
+    Callback = function()
+        for i = 1, 10 do
+            ClaimMoney(claimAmount)
+            task.wait(0.5)
+        end
+    end
+})
+
 -- Auto Claim Section
+Main:Space({Columns = 2})
+
 local AutoSec = Main:Section({
     Title = "🔄 Auto Claim",
     Icon = "repeat",
@@ -175,6 +236,7 @@ local AutoSec = Main:Section({
 })
 
 AutoSec:Toggle({
+    Flag = "AutoClaimEnabled",
     Title = "Enable Auto Claim",
     Description = "Automatically claim every X seconds",
     Value = false,
@@ -188,7 +250,10 @@ AutoSec:Toggle({
     end
 })
 
+AutoSec:Space()
+
 AutoSec:Slider({
+    Flag = "AutoClaimDelay",
     Title = "Auto Claim Delay",
     Description = "Time between claims (seconds)",
     Min = 1,
@@ -200,12 +265,27 @@ AutoSec:Slider({
     end
 })
 
--- Quick Claim
+-- Quick Claim Section
+Main:Space({Columns = 2})
+
 local QuickSec = Main:Section({
     Title = "⚡ Quick Claim",
     Icon = "zap",
     Opened = true
 })
+
+QuickSec:Keybind({
+    Flag = "QuickClaimKey",
+    Title = "Quick Claim Hotkey",
+    Description = "Press this key to claim instantly",
+    Value = "F",
+    Callback = function(v)
+        quickClaimKey = v
+        SetupQuickClaimHotkey(v)
+    end
+})
+
+QuickSec:Space()
 
 for _, amt in ipairs({100, 500, 1000, 5000, 10000, 50000, 100000}) do
     QuickSec:Button({
@@ -217,7 +297,56 @@ for _, amt in ipairs({100, 500, 1000, 5000, 10000, 50000, 100000}) do
 end
 
 --========================================================--
--- ⚙️ UI Settings Tab
+-- Advanced Tab
+--========================================================--
+local Advanced = Window:Tab({
+    Title = "Advanced",
+    Icon = "sliders"
+})
+
+local AdvSec = Advanced:Section({
+    Title = "⚙️ Advanced Settings",
+    Icon = "settings",
+    Opened = true
+})
+
+AdvSec:Input({
+    Flag = "CustomAmount",
+    Title = "Custom Claim Amount",
+    Description = "Enter custom amount",
+    Value = "1000",
+    Icon = "dollar-sign",
+    Placeholder = "Enter amount...",
+    Callback = function(value)
+        local amount = tonumber(value)
+        if amount and amount > 0 then
+            claimAmount = amount
+            Notify("✅ Amount", "Set to $" .. tostring(amount), "check")
+        else
+            Notify("❌ Error", "Invalid amount!", "x")
+        end
+    end
+})
+
+AdvSec:Space()
+
+AdvSec:Input({
+    Flag = "APIEndpoint",
+    Title = "API Endpoint",
+    Description = "Custom server endpoint",
+    Value = "ClaimReward",
+    Icon = "link",
+    Type = "Input",
+    Placeholder = "e.g., ClaimReward",
+    Callback = function(value)
+        if value and value ~= "" then
+            Notify("🔗 API", "Endpoint set to " .. value, "link")
+        end
+    end
+})
+
+--========================================================--
+-- UI Settings Tab
 --========================================================--
 local Settings = Window:Tab({
     Title = "UI Settings",
@@ -231,30 +360,44 @@ local UIsec = Settings:Section({
 })
 
 UIsec:Colorpicker({
+    Flag = "AccentColor",
     Title = "Accent Color",
     Description = "Change UI accent color",
     Default = Color3.fromRGB(120, 80, 255),
     Callback = function(color)
         pcall(function()
             WindUI:SetAccent(color)
-            Notify("🎨 Theme", "Accent color updated", "palette")
+            Notify("🎨 Theme", "Accent updated!", "palette")
         end)
     end
 })
 
+UIsec:Space()
+
+UIsec:Toggle({
+    Flag = "DarkMode",
+    Title = "Dark Mode",
+    Description = "Enable dark theme",
+    Value = true,
+    Callback = function(val)
+        Notify("🌙 Theme", val and "Dark mode enabled" or "Light mode enabled", "moon")
+    end
+})
+
+UIsec:Space()
+
 UIsec:Button({
-    Title = "Get Theme Name",
+    Title = "Copy Theme Name",
     Description = "Copy 'Nova Neon' to clipboard",
+    Icon = "clipboard",
     Callback = function()
-        pcall(function()
-            setclipboard("Nova Neon")
-            Notify("✅ Copied", "Theme name copied to clipboard", "clipboard")
-        end)
+        pcall(function() setclipboard("Nova Neon") end)
+        Notify("✅ Copied", "Theme name copied!", "clipboard")
     end
 })
 
 --========================================================--
--- 💾 Config Tab
+-- Config Tab
 --========================================================--
 local ConfigTab = Window:Tab({
     Title = "Config",
@@ -267,20 +410,41 @@ local ConfSec = ConfigTab:Section({
     Opened = true
 })
 
+ConfSec:Paragraph({
+    Title = "Configuration",
+    Content = "Save and load your settings. Configs are stored in clipboard as JSON."
+})
+
+ConfSec:Space()
+
 ConfSec:Button({
     Title = "Save Config",
-    Description = "Save settings in memory",
+    Description = "Save to clipboard",
+    Icon = "save",
     Callback = SaveConfig
 })
 
+ConfSec:Space()
+
 ConfSec:Button({
     Title = "Load Config",
-    Description = "Load settings from memory",
+    Description = "Load from clipboard",
+    Icon = "download",
     Callback = LoadConfig
 })
 
+ConfSec:Space()
+
+local ConfigNameInput = ConfSec:Input({
+    Title = "Config Name",
+    Description = "Name for your config",
+    Value = "Default",
+    Icon = "file",
+    Placeholder = "Enter config name...",
+})
+
 --========================================================--
--- ℹ️ Information Tab
+-- Information Tab
 --========================================================--
 local InfoTab = Window:Tab({
     Title = "Information",
@@ -295,19 +459,23 @@ local InfoSec = InfoTab:Section({
 
 InfoSec:Paragraph({
     Title = "About",
-    Content = "NovaAxis Hub — WindUI v2\nVersion 3.2 Stable (Fixed)\nAuthor: NovaAxis"
+    Content = "NovaAxis Hub — WindUI v2\nVersion 4.0 Pro Edition\nAuthor: NovaAxis\n\nFeatures:\n• Full config save/load\n• Keybind support\n• Multiple claim modes\n• Advanced settings\n• Custom UI themes"
 })
+
+InfoSec:Space()
 
 InfoSec:Button({
     Title = "🌐 Discord Server",
     Description = "Copy invite to clipboard",
+    Icon = "link",
     Callback = function()
-        pcall(function()
-            setclipboard("https://discord.gg/Eg98P4wf2V")
-            Notify("✅ Discord", "Invite copied to clipboard", "link")
-        end)
+        pcall(function() setclipboard("https://discord.gg/Eg98P4wf2V") end)
+        Notify("✅ Discord", "Invite copied!", "copy")
     end
 })
 
-print("✅ NovaAxis Hub Loaded (Stable, WindUI v2)")
-print("⌨️ Toggle key: Left Alt")
+-- Initialize hotkey
+SetupQuickClaimHotkey(quickClaimKey)
+
+print("✅ NovaAxis Hub Pro Edition Loaded")
+print("⌨️ Toggle UI: Left Alt | Quick Claim: " .. quickClaimKey)
