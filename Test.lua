@@ -1,20 +1,14 @@
---[[ 
-    💫 NovaAxis Hub - Steal A Femboy (WindUI full, v4.8)
-    Author: NovaAxis (interface ported to WindUI)
-    Version: 4.8-full
-    Notes: Complete script. WindUI loaded from GitHub release.
-    Changes in v4.8:
-      - All Sections are opened by default (Opened = true)
-      - Removed "Copy GitHub (author)" button
-      - Anti-Cheat bypass auto-enabled prior to UI creation
-      - Theme: Nova Neon (RGB 120,80,255)
-      - No banners, no avatar decorations
-      - Utility icon fixed to 'wrench'
-      - UI Settings, Config, Information non-empty and opened
+--[[
+    💫 NovaAxis Hub - 99 Nights In The Forest (WindUI rewrite, no Compkiller)
+    Author: NovaAxis (ported to WindUI, Compkiller-free)
+    Version: 2.5-windui
+    Notes: This file intentionally does NOT import or reuse Compkiller code.
+           WindUI is loaded separately (expected to be available via the provided URL).
+           All core game logic from the original (ClaimReward usage) is preserved.
 ]]
 
 -- ============================
--- Load WindUI (latest)
+-- Load WindUI
 -- ============================
 local successWind, WindUI = pcall(function()
     return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
@@ -28,74 +22,53 @@ end
 -- ============================
 -- Services
 -- ============================
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 
--- ============================
--- Player
--- ============================
 local player = Players.LocalPlayer
 
 -- ============================
--- Target Names
+-- Constants / Defaults
 -- ============================
-local TARGET_NAMES = {
-    ["Roommate"] = true,
-    ["Casual Astolfo"] = true,
-    ["Chihiro Fujisaki"] = true,
-    ["Venti"] = true,
-    ["Gasper"] = true,
-    ["Saika"] = true,   
-    ["J*b Application"] = true,
-    ["Mythical Lucky Block"] = true,
-    ["Nagisa Shiota"] = true,
-    ["Felix"] = true,
-    ["Rimuru"] = true,
-}
+local DEFAULT_CLAIM_AMOUNT = 100
+local MIN_CLAIM_AMOUNT = 100
+local MAX_CLAIM_AMOUNT = 100000
 
 -- ============================
--- State variables
+-- State
 -- ============================
-local isRunning = false
-local autoStealEnabled = false
-local autoStealDelay = 5
-local promptTimeout = 5
+local claimAmount = DEFAULT_CLAIM_AMOUNT
+local autoClaim = false
+local autoClaimActive = false
+local autoClaimDelay = 5
 
--- Movement / Noclip state
-local walkSpeedEnabled = false
-local customWalkSpeed = 16
-local noclipEnabled = false
-local noclipConnection = nil
-
--- Config manager placeholder
-local ConfigManager = {
-    Directory = "NovaAxis-FemboySteal",
-    Config = "Default-Config"
-}
-
--- ============================
--- Theme: Nova Neon (RGB 120,80,255)
--- ============================
+-- UI theme (Nova Neon)
 WindUI:AddTheme({
     Name = "Nova Neon",
     Accent = Color3.fromRGB(120, 80, 255),
-    Dialog = Color3.fromRGB(18, 18, 20),
-    Outline = Color3.fromRGB(255, 255, 255),
-    Text = Color3.fromRGB(230, 230, 230),
-    Placeholder = Color3.fromRGB(130, 130, 140),
-    Background = Color3.fromRGB(8, 8, 10),
-    Button = Color3.fromRGB(50, 40, 60),
-    Icon = Color3.fromRGB(190, 180, 255)
+    Dialog = Color3.fromRGB(18,18,20),
+    Outline = Color3.fromRGB(255,255,255),
+    Text = Color3.fromRGB(230,230,230),
+    Placeholder = Color3.fromRGB(130,130,140),
+    Background = Color3.fromRGB(8,8,10),
+    Button = Color3.fromRGB(50,40,60),
+    Icon = Color3.fromRGB(190,180,255)
 })
 WindUI:SetTheme("Nova Neon")
 
 -- ============================
--- Helpers: Notifications
+-- Local helpers
 -- ============================
-local function Notify(opts)
+local function safe_pcall(fn, ...)
+    local ok, res = pcall(fn, ...)
+    return ok, res
+end
+
+-- Simple Notifier wrapper using WindUI
+local function NotifierNew(opts)
     -- opts: {Title, Content, Duration, Icon}
     WindUI:Notify({
         Title = opts.Title or "Notification",
@@ -105,669 +78,355 @@ local function Notify(opts)
     })
 end
 
--- Debug helper: prints to console and optionally notifies
-local function DebugLog(msg, notify)
-    msg = tostring(msg)
-    print("[NovaAxis DEBUG] " .. msg)
-    if notify then
-        Notify({Title = "DEBUG", Content = msg, Duration = 3, Icon = "activity"})
+-- Simple ConfigManager placeholder (no file IO, just metadata)
+local ConfigManager = {}
+ConfigManager.Directory = "NovaAxis-99Nights"
+ConfigManager.Config = "Default-Config"
+ConfigManager.current = {}
+function ConfigManager:Save(name)
+    -- Placeholder: store current settings in memory; in future can write to file
+    local n = name or self.Config
+    self.current[n] = {
+        claimAmount = claimAmount,
+        autoClaim = autoClaim,
+        autoClaimDelay = autoClaimDelay
+    }
+    NotifierNew({Title = "Config", Content = "Settings saved to memory (placeholder) ["..n.."]", Duration = 2, Icon = "save"})
+end
+function ConfigManager:Load(name)
+    local n = name or self.Config
+    local cfg = self.current[n]
+    if cfg then
+        claimAmount = cfg.claimAmount or claimAmount
+        autoClaim = cfg.autoClaim or autoClaim
+        autoClaimDelay = cfg.autoClaimDelay or autoClaimDelay
+        NotifierNew({Title = "Config", Content = "Settings loaded from memory (placeholder) ["..n.."]", Duration = 2, Icon = "download"})
+        return true
+    else
+        NotifierNew({Title = "Config", Content = "No saved config found for ["..n.."]", Duration = 2, Icon = "alert-circle"})
+        return false
     end
 end
 
 -- ============================
--- Anti-cheat bypass functions
+-- Core game function: claim money
 -- ============================
-local function SetupKickProtection()
-    local mt = getrawmetatable(game)
-    if not mt then return end
-    local oldNamecall = mt.__namecall
-    if setreadonly then
-        pcall(function() setreadonly(mt, false) end)
+local function executeClaim(amount)
+    if not amount or type(amount) ~= "number" or amount <= 0 then
+        NotifierNew({Title = "❌ Error", Content = "Invalid amount entered!", Duration = 3, Icon = "x"})
+        return false
     end
-    if oldNamecall then
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            if method == "Kick" then
-                -- silently ignore kicks
-                return nil
-            end
-            return oldNamecall(self, ...)
-        end)
-    end
-end
 
-local function DisconnectAllConnections(object, signalName)
-    if not object then return end
-    local ok, signal = pcall(function() return object[signalName] end)
-    if not ok or not signal then return end
-    local connections = getconnections(signal)
-    if connections then
-        for _, conn in pairs(connections) do
-            if conn and type(conn.Disconnect) == "function" then
-                pcall(function() conn:Disconnect() end)
-            end
+    -- Try to call the ClaimReward remote (replicating original script behavior)
+    local ok, err = pcall(function()
+        -- If the event exists, fire it
+        local claimEvent = ReplicatedStorage:FindFirstChild("ClaimReward")
+        if not claimEvent then
+            error("ClaimReward remote not found in ReplicatedStorage")
         end
-    end
-end
-
-local function ExecuteBypass()
-    SetupKickProtection()
-
-    repeat task.wait() until player
-    repeat task.wait() until player.Character
-
-    local character = player.Character
-
-    if character then
-        local humanoid = character:FindFirstChild("Humanoid")
-        if humanoid then
-            DisconnectAllConnections(humanoid, "StateChanged")
-            DisconnectAllConnections(humanoid, "Changed")
-        end
-
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if rootPart then
-            DisconnectAllConnections(rootPart, "ChildAdded")
-        end
-
-        DisconnectAllConnections(character, "ChildRemoved")
-    end
-
-    local backpack = player:FindFirstChild("Backpack")
-    if backpack then
-        DisconnectAllConnections(backpack, "ChildAdded")
-    end
-
-    local camera = workspace.CurrentCamera
-    if camera then
-        DisconnectAllConnections(camera, "ChildAdded")
-    end
-
-    local antiScript = script.Parent and script.Parent:FindFirstChild("Anti")
-    if antiScript then
-        pcall(function()
-            antiScript.Disabled = true
-            antiScript:Destroy()
-        end)
-    end
-
-    task.spawn(function()
-        while task.wait(5) do
-            if script.Parent then
-                local newAnti = script.Parent:FindFirstChild("Anti")
-                if newAnti then
-                    pcall(function() newAnti.Disabled = true; newAnti:Destroy() end)
-                end
-            end
-            if character and character.Parent then
-                local currentHumanoid = character:FindFirstChild("Humanoid")
-                if currentHumanoid then
-                    DisconnectAllConnections(currentHumanoid, "StateChanged")
-                end
-            end
-        end
+        -- Many games expect arguments in a specific order — original passed ("Money", amount)
+        claimEvent:FireServer("Money", amount)
     end)
-end
 
-local function SafeExecute()
-    local ok, err = pcall(ExecuteBypass)
     if ok then
-        Notify({ Title = "🛡️ Anti-Cheat", Content = "Bypass enabled successfully!", Duration = 3, Icon = "shield-check" })
+        NotifierNew({Title = "✅ Success", Content = "Claimed $" .. tostring(amount) .. "!", Duration = 3, Icon = "check"})
+        return true
     else
-        -- fallback minimal namecall override
-        local mt = getrawmetatable(game)
-        if mt then
-            local old = mt.__namecall
-            pcall(function() setreadonly(mt, false) end)
-            mt.__namecall = function(self, ...)
-                if getnamecallmethod() == "Kick" then return nil end
-                return old(self, ...)
-            end
-        end
-        Notify({ Title = "⚠️ Warning", Content = "Partial bypass failure. Fallback applied.", Duration = 4, Icon = "alert-circle" })
-        DebugLog("SafeExecute error: " .. tostring(err))
+        NotifierNew({Title = "❌ Error", Content = "Failed to claim money: " .. tostring(err), Duration = 4, Icon = "alert-circle"})
+        return false
     end
 end
 
 -- ============================
--- Game logic (steal functions)
+-- Auto-claim loop
 -- ============================
-local function getAnyBasePart(model)
-    if not model then return nil end
-    if model.PrimaryPart and model.PrimaryPart:IsA("BasePart") then
-        return model.PrimaryPart
-    end
-    for _, descendant in ipairs(model:GetDescendants()) do
-        if descendant:IsA("BasePart") then
-            return descendant
-        end
-    end
-    return nil
-end
-
-local function findPlayerBase()
-    local basesFolder = Workspace:FindFirstChild("Bases")
-    if not basesFolder then return nil end
-
-    for _, base in ipairs(basesFolder:GetChildren()) do
-        if base:IsA("Model") then
-            local config = base:FindFirstChild("Configuration") or base:FindFirstChild("Configurationsa")
-            if config then
-                local playerValue = config:FindFirstChild("Player")
-                if playerValue and (playerValue.Value == player or playerValue.Value == player.Name) then
-                    return base
-                end
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if autoClaim and not autoClaimActive then
+            autoClaimActive = true
+            executeClaim(claimAmount)
+            -- wait for configured delay (safeguard)
+            local waited = 0
+            while waited < autoClaimDelay do
+                task.wait(0.25)
+                waited = waited + 0.25
+                if not autoClaim then break end
             end
-        end
-    end
-    return nil
-end
-
-local function findTargetFemboy(playerBase)
-    local basesFolder = Workspace:FindFirstChild("Bases")
-    if not basesFolder then return nil, nil end
-
-    for _, base in ipairs(basesFolder:GetChildren()) do
-        if base:IsA("Model") and base ~= playerBase then
-            local slots = base:FindFirstChild("Slots")
-            if slots then
-                for _, slot in ipairs(slots:GetChildren()) do
-                    for _, model in ipairs(slot:GetChildren()) do
-                        if model:IsA("Model") then
-                            local modelName = model.Name
-                            if (type(modelName) == "string" and modelName:lower():find("femboy")) or TARGET_NAMES[modelName] then
-                                return model, base
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return nil, nil
-end
-
-local function teleportCharacterToPosition(position)
-    local character = player.Character
-    if not character then return false end
-
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return false end
-
-    pcall(function()
-        humanoidRootPart.Velocity = Vector3.zero
-        humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
-    end)
-
-    humanoidRootPart.CFrame = CFrame.new(position)
-    RunService.Heartbeat:Wait()
-
-    pcall(function()
-        humanoidRootPart.Velocity = Vector3.zero
-        humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
-    end)
-
-    return true
-end
-
-local function findProximityPromptInModel(rootModel, originPosition, maxDistance)
-    local bestPrompt, bestDistance
-    maxDistance = maxDistance or 20
-
-    for _, descendant in ipairs(rootModel:GetDescendants()) do
-        if descendant:IsA("ProximityPrompt") and descendant.Enabled then
-            local part = descendant.Parent
-            if part and part:IsA("BasePart") then
-                local distance = (part.Position - originPosition).Magnitude
-                if distance <= maxDistance and (not bestDistance or distance < bestDistance) then
-                    bestPrompt = descendant
-                    bestDistance = distance
-                end
-            end
-        end
-    end
-    return bestPrompt
-end
-
-local function activateProximityPromptWithTimeout(prompt, timeout)
-    local success = false
-    local errorMessage = nil
-
-    local thread = task.spawn(function()
-        local result, err = pcall(function()
-            if prompt and prompt:IsA("ProximityPrompt") then
-                prompt:InputHoldBegin()
-                local holdDuration = prompt.HoldDuration or 0.5
-                task.wait(holdDuration)
-                prompt:InputHoldEnd()
-
-                local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
-                if remoteEvent then
-                    pcall(function() remoteEvent:FireServer() end)
-                end
-                success = true
-            else
-                error("Object is not a ProximityPrompt")
-            end
-        end)
-
-        if not result then
-            errorMessage = err
-        end
-    end)
-
-    local startTime = tick()
-    while not success and (tick() - startTime) < timeout do
-        task.wait(0.1)
-    end
-
-    if not success then
-        return false, "Timeout: Prompt not activated in " .. timeout .. " seconds"
-    end
-
-    return success, errorMessage
-end
-
-local function executeInstantSteal()
-    if isRunning then
-        Notify({ Title = "⚠️ Warning", Content = "Already running!", Duration = 2, Icon = "alert-circle" })
-        return
-    end
-
-    isRunning = true
-
-    local character = player.Character
-    if not character then
-        Notify({ Title = "❌ Error", Content = "Character not found!", Duration = 3, Icon = "x" })
-        isRunning = false
-        return
-    end
-
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-
-    if not humanoid or not humanoidRootPart then
-        Notify({ Title = "❌ Error", Content = "Humanoid/HRP not found!", Duration = 3, Icon = "x" })
-        isRunning = false
-        return
-    end
-
-    local playerBase = findPlayerBase()
-    if not playerBase then
-        Notify({ Title = "❌ Error", Content = "Your base not found!", Duration = 3, Icon = "x" })
-        isRunning = false
-        return
-    end
-
-    local targetModel, targetBase = findTargetFemboy(playerBase)
-    if not targetModel then
-        Notify({ Title = "❌ Error", Content = "Target not found!", Duration = 3, Icon = "x" })
-        isRunning = false
-        return
-    end
-
-    local targetPart = getAnyBasePart(targetModel)
-    if not targetPart then
-        Notify({ Title = "❌ Error", Content = "Could not find target part", Duration = 3, Icon = "x" })
-        isRunning = false
-        return
-    end
-
-    local targetPosition = targetPart.Position + Vector3.new(0, 3, 0)
-
-    local savedWalkSpeed = humanoid.WalkSpeed
-    local savedJumpPower = humanoid.JumpPower
-    humanoid.WalkSpeed = 0
-    humanoid.JumpPower = 0
-
-    Notify({ Title = "✨ Info", Content = "Teleporting to target...", Duration = 2, Icon = "arrow-right-circle" })
-
-    if not teleportCharacterToPosition(targetPosition) then
-        Notify({ Title = "❌ Error", Content = "Teleportation failed!", Duration = 3, Icon = "x" })
-        humanoid.WalkSpeed = savedWalkSpeed
-        humanoid.JumpPower = savedJumpPower
-        isRunning = false
-        return
-    end
-
-    task.wait(0.3)
-
-    local prompt = findProximityPromptInModel(targetBase or targetModel, targetPosition, 25)
-
-    if prompt then
-        Notify({ Title = "⏳ Info", Content = "Activating prompt... (" .. promptTimeout .. "s timeout)", Duration = 2, Icon = "clock" })
-        local ok, err = activateProximityPromptWithTimeout(prompt, promptTimeout)
-
-        if ok then
-            Notify({ Title = "✅ Success", Content = "Prompt activated!", Duration = 2, Icon = "check" })
-            task.wait(1)
-        else
-            Notify({ Title = "⚠️ Warning", Content = err or "Prompt timeout!", Duration = 3, Icon = "alert-circle" })
-        end
-    else
-        Notify({ Title = "⚠️ Warning", Content = "Prompt not found!", Duration = 2, Icon = "alert-circle" })
-    end
-
-    local spawn = playerBase:FindFirstChild("Spawn")
-    if spawn then
-        local spawnPosition
-
-        if spawn:IsA("BasePart") then
-            spawnPosition = spawn.Position
-        else
-            local basePart = spawn:FindFirstChild("Base")
-            if basePart and basePart:IsA("BasePart") then
-                spawnPosition = basePart.Position
-            end
-        end
-
-        if spawnPosition then
-            Notify({ Title = "🏠 Info", Content = "Returning to base...", Duration = 2, Icon = "home" })
-            teleportCharacterToPosition(spawnPosition + Vector3.new(0, 3, 0))
-            task.wait(0.3)
-            Notify({ Title = "✅ Success", Content = "Returned successfully!", Duration = 2, Icon = "check" })
-        end
-    end
-
-    humanoid.WalkSpeed = savedWalkSpeed
-    humanoid.JumpPower = savedJumpPower
-    isRunning = false
-end
-
--- ============================
--- Keep WalkSpeed on respawn
--- ============================
-player.CharacterAdded:Connect(function(character)
-    task.wait(0.5)
-    if walkSpeedEnabled then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = customWalkSpeed
+            autoClaimActive = false
         end
     end
 end)
 
 -- ============================
--- Execute bypass immediately (before UI)
--- ============================
-pcall(function() SafeExecute() end)
-
--- ============================
--- Build WindUI layout
+-- Build WindUI window & layout
 -- ============================
 local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
     Icon = "sparkles",
     Author = "NovaAxis",
-    Folder = "NovaAxis-FemboySteal",
-    Size = UDim2.fromOffset(920, 640), -- slightly larger by default
-    MinSize = Vector2.new(680, 480),
+    Folder = ConfigManager.Directory,
+    Size = UDim2.fromOffset(880, 560),
+    MinSize = Vector2.new(640, 420),
     Transparent = true,
     Theme = "Nova Neon",
     Resizable = true,
-    SideBarWidth = 240,
-    BackgroundImageTransparency = 0.45,
-    -- other WindUI-specific options can be added if supported
+    SideBarWidth = 220
 })
 
 Window:SetToggleKey(Enum.KeyCode.LeftAlt)
 
-Notify({ Title = "💫 NovaAxis Hub", Content = "Successfully loaded for Steal A Femboy!", Duration = 3, Icon = "sparkles" })
-DebugLog("Window created, building tabs...", false)
+-- Welcome notification
+NotifierNew({Title = "💫 NovaAxis Hub", Content = "Successfully loaded for 99 Nights In The Forest!", Duration = 4, Icon = "sparkles"})
 
--- ============================
--- Femboy Stealer Tab
--- ============================
-local mainTab = Window:Tab({ Title = "Femboy Stealer", Icon = "target" })
+-- ----------------------------
+-- Category: Money Farm (Main)
+-- ----------------------------
+Window:DrawCategory({ Name = "💰 Money Farm" })
 
-local StealSection = mainTab:Section({ Title = "⚡ Instant Steal", Icon = "zap", Opened = true })
-StealSection:Button({
-    Title = "⚡ Execute Instant Steal",
-    Desc = "Teleport, activate prompt, return.",
+local MainTab = Window:DrawTab({
+    Name = "Main Features",
+    Icon = "dollar-sign",
+    EnableScrolling = true
+})
+
+-- Claim Section (left)
+local ClaimSection = MainTab:DrawSection({
+    Name = "💵 Claim Money",
+    Position = 'left'
+})
+
+ClaimSection:AddSlider({
+    Name = "Claim Amount",
+    Min = MIN_CLAIM_AMOUNT,
+    Max = MAX_CLAIM_AMOUNT,
+    Default = DEFAULT_CLAIM_AMOUNT,
+    Round = 0,
+    Flag = "ClaimAmount",
+    Callback = function(value)
+        claimAmount = value
+    end
+})
+
+ClaimSection:AddButton({
+    Name = "💰 Claim Money",
     Callback = function()
-        task.spawn(function()
-            local ok, err = pcall(executeInstantSteal)
-            if not ok then
-                Notify({ Title = "❌ Error", Content = "Error: " .. tostring(err), Duration = 3, Icon = "x" })
-                DebugLog("executeInstantSteal error: " .. tostring(err))
-            end
-        end)
+        executeClaim(claimAmount)
     end
 })
-StealSection:Paragraph({
-    Title = "ℹ️ How it works",
-    Content = "Телепортируется к цели, активирует промпт и возвращается на вашу базу автоматически."
+
+ClaimSection:AddParagraph({
+    Title = "ℹ️ Info",
+    Content = "Use the slider to set the amount, then click the button to claim money. Make sure the server has the 'ClaimReward' remote under ReplicatedStorage."
 })
 
-local AutoSection = mainTab:Section({ Title = "🔄 Auto Steal", Icon = "repeat", Opened = true })
-AutoSection:Toggle({
-    Title = "Enable Auto Steal",
-    Desc = "Automatically steal every N seconds",
+-- Auto Claim Section (left)
+local AutoSection = MainTab:DrawSection({
+    Name = "🔄 Auto Claim",
+    Position = 'left'
+})
+
+AutoSection:AddToggle({
+    Name = "Enable Auto Claim",
+    Flag = "AutoClaim",
     Default = false,
     Callback = function(value)
-        autoStealEnabled = value
+        autoClaim = value
         if value then
-            Notify({ Title = "✅ Auto Steal", Content = "Auto Steal Enabled!", Duration = 2, Icon = "play" })
-            task.spawn(function()
-                while autoStealEnabled do
-                    if not isRunning then
-                        executeInstantSteal()
-                    end
-                    task.wait(autoStealDelay)
-                end
-            end)
+            NotifierNew({Title = "✅ Enabled", Content = "Auto Claim is now active!", Duration = 3, Icon = "play"})
         else
-            Notify({ Title = "❌ Auto Steal", Content = "Auto Steal Disabled!", Duration = 2, Icon = "pause" })
+            NotifierNew({Title = "⏸️ Disabled", Content = "Auto Claim has been stopped.", Duration = 3, Icon = "pause"})
         end
     end
-})
-AutoSection:Slider({
-    Title = "Auto Steal Delay (seconds)",
-    Step = 1,
-    Value = { Min = 1, Max = 60, Default = 5 },
-    Callback = function(value) autoStealDelay = value end
 })
 
-local SettingsSection = mainTab:Section({ Title = "⚙️ Settings", Icon = "settings", Opened = true })
-SettingsSection:Keybind({
-    Title = "Quick Steal Hotkey",
-    Desc = "Set quick steal hotkey",
-    Value = "F",
-    Callback = function(v)
-        local successKey, code = pcall(function() return Enum.KeyCode[v] end)
-        if successKey and code then
-            if _G.NovaAxisQuickStealConnection then
-                _G.NovaAxisQuickStealConnection:Disconnect()
-                _G.NovaAxisQuickStealConnection = nil
-            end
-            _G.NovaAxisQuickStealConnection = UserInputService.InputBegan:Connect(function(input, gpe)
-                if gpe then return end
-                if input.KeyCode == code then
-                    executeInstantSteal()
-                end
-            end)
-        end
-    end
-})
-SettingsSection:Slider({
-    Title = "Prompt Timeout (seconds)",
-    Step = 1,
-    Value = { Min = 1, Max = 10, Default = 5 },
+AutoSection:AddSlider({
+    Name = "Auto Claim Delay (seconds)",
+    Min = 1,
+    Max = 30,
+    Default = 5,
+    Round = 0,
+    Flag = "AutoClaimDelay",
     Callback = function(value)
-        promptTimeout = value
-        Notify({ Title = "⚙️ Settings", Content = "Timeout set to " .. value .. "s", Duration = 2, Icon = "clock" })
+        autoClaimDelay = value
     end
 })
 
-local TargetSection = mainTab:Section({ Title = "🎯 Target List", Icon = "list", Opened = true })
-TargetSection:Paragraph({
-    Title = "🎯 Targets",
-    Content = "• Any name with 'femboy'\n• Roommate\n• Casual Astolfo\n• Chihiro Fujisaki\n• Venti\n• Gasper\n• Saika\n• J*b Application\n• Mythical Lucky Block\n• Nagisa Shiota\n• Felix\n• Rimuru"
+AutoSection:AddParagraph({
+    Title = "⚡ How it works",
+    Content = "When enabled, the script will automatically claim the set amount every X seconds."
 })
 
--- ============================
--- Utility Tab (icon 'wrench', sections opened)
--- ============================
-local UtilityTab = Window:Tab({ Title = "Utility", Icon = "wrench", EnableScrolling = true })
-UtilityTab:Paragraph({
-    Title = "ℹ️ About Utility",
-    Content = "Здесь находятся вспомогательные функции — изменение скорости и прохождение сквозь стены (Noclip)."
+-- Quick Claim Section (right)
+local QuickSection = MainTab:DrawSection({
+    Name = "⚡ Quick Claim",
+    Position = 'right'
 })
 
-local MovementSection = UtilityTab:Section({ Title = "🏃 Movement", Icon = "run", Opened = true })
-MovementSection:Toggle({
-    Title = "Enable Custom WalkSpeed",
+local quickAmounts = {100, 500, 1000, 5000, 10000, 50000, 100000}
+for _, amt in ipairs(quickAmounts) do
+    QuickSection:AddButton({
+        Name = "💵 Claim $" .. tostring(amt),
+        Callback = (function(a) return function() executeClaim(a) end end)(amt)
+    })
+end
+
+QuickSection:AddParagraph({
+    Title = "📌 Quick Access",
+    Content = "Use these buttons for instant claims of preset amounts."
+})
+
+-- Info Section (right)
+local InfoSection = MainTab:DrawSection({
+    Name = "ℹ️ Information",
+    Position = 'right'
+})
+
+InfoSection:AddParagraph({
+    Title = "💫 NovaAxis Hub",
+    Content = "Version: 2.5\nGame: 99 Nights In The Forest\nCreated by: NovaAxis"
+})
+
+-- Removed "Copy GitHub (author)" per request — no external references added.
+
+InfoSection:AddParagraph({
+    Title = "⌨️ Controls",
+    Content = "Press Left Alt to toggle UI.\nUse the slider or quick buttons to claim money.\nEnable Auto Claim to repeatedly claim automatically."
+})
+
+-- ----------------------------
+-- Category: Settings (UI & Config)
+-- ----------------------------
+Window:DrawCategory({ Name = "⚙️ Settings" })
+
+-- UI Settings Tab
+local SettingTab = Window:DrawTab({
+    Icon = "settings",
+    Name = "UI Settings",
+    Type = "Single",
+    EnableScrolling = true
+})
+
+local UISettings = SettingTab:DrawSection({
+    Name = "🎨 UI Customization",
+})
+
+UISettings:AddToggle({
+    Name = "Always Show Frame",
     Default = false,
-    Callback = function(value)
-        walkSpeedEnabled = value
-        if value then
-            local char = player.Character
-            if char then
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.WalkSpeed = customWalkSpeed
-                    Notify({ Title = "✅ WalkSpeed", Content = "WalkSpeed set to " .. customWalkSpeed, Duration = 2, Icon = "run" })
-                end
-            end
-        else
-            local char = player.Character
-            if char then
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.WalkSpeed = 16
-                    Notify({ Title = "🔄 WalkSpeed", Content = "WalkSpeed reset to 16", Duration = 2, Icon = "refresh-ccw" })
-                end
-            end
-        end
-    end
-})
-MovementSection:Slider({
-    Title = "WalkSpeed Value",
-    Step = 1,
-    Value = { Min = 16, Max = 350, Default = 16 },
-    Callback = function(value)
-        customWalkSpeed = value
-        if walkSpeedEnabled then
-            local char = player.Character
-            if char then
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if humanoid then humanoid.WalkSpeed = customWalkSpeed end
-            end
-        end
-    end
-})
-MovementSection:Toggle({
-    Title = "Enable Noclip",
-    Default = false,
-    Callback = function(value)
-        noclipEnabled = value
-        if value then
-            Notify({ Title = "✅ Noclip", Content = "Noclip Enabled!", Duration = 2, Icon = "move" })
-            noclipConnection = RunService.Stepped:Connect(function()
-                if not noclipEnabled then return end
-                local char = player.Character
-                if char then
-                    for _, part in pairs(char:GetDescendants()) do
-                        if part:IsA("BasePart") then part.CanCollide = false end
-                    end
-                end
-            end)
-        else
-            Notify({ Title = "🔄 Noclip", Content = "Noclip Disabled!", Duration = 2, Icon = "move" })
-            if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
-            local char = player.Character
-            if char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = true end
-                end
-            end
-        end
-    end
+    Flag = "AlwaysShowFrame",
+    Callback = function(v)
+        -- WindUI behavior may differ; store as placeholder setting
+        NotifierNew({Title = "UI", Content = "Always Show Frame set to: " .. tostring(v), Duration = 2})
+    end,
 })
 
--- ============================
--- UI Settings Tab (sections opened)
--- ============================
-local UISettingsTab = Window:Tab({ Icon = "settings", Title = "UI Settings", EnableScrolling = true })
-local UISettingsSection = UISettingsTab:Section({ Title = "🎨 UI Customization", Icon = "paintbrush", Opened = true })
-UISettingsSection:Paragraph({ Title = "Theme", Content = "Текущая тема: Nova Neon (Accent: RGB 120,80,255). Настройте акцентный цвет ниже." })
-UISettingsSection:Toggle({
-    Title = "Always Show Frame",
-    Default = false,
+UISettings:AddColorPicker({
+    Name = "Highlight Color",
+    Default = WindUI and Color3.fromRGB(120,80,255) or Color3.new(1,0,1),
+    Flag = "HighlightColor",
     Callback = function(v)
-        if v then Notify({ Title = "UI", Content = "Always Show Frame enabled (placeholder).", Duration = 2 }) 
-        else Notify({ Title = "UI", Content = "Always Show Frame disabled (placeholder).", Duration = 2 }) end
-    end
-})
-UISettingsSection:Colorpicker({
-    Title = "Highlight Color",
-    Default = Color3.fromRGB(120, 80, 255),
-    Callback = function(v)
+        -- Apply theme update
         WindUI:AddTheme({
             Name = "Nova Neon - Custom",
             Accent = v,
-            Dialog = Color3.fromRGB(18, 18, 20),
-            Outline = Color3.fromRGB(255, 255, 255),
-            Text = Color3.fromRGB(230, 230, 230),
-            Placeholder = Color3.fromRGB(130, 130, 140),
-            Background = Color3.fromRGB(8, 8, 10),
-            Button = Color3.fromRGB(50, 40, 60),
-            Icon = Color3.fromRGB(190, 180, 255)
+            Dialog = Color3.fromRGB(18,18,20),
+            Outline = Color3.fromRGB(255,255,255),
+            Text = Color3.fromRGB(230,230,230),
+            Placeholder = Color3.fromRGB(130,130,140),
+            Background = Color3.fromRGB(8,8,10),
+            Button = Color3.fromRGB(50,40,60),
+            Icon = Color3.fromRGB(190,180,255)
         })
         WindUI:SetTheme("Nova Neon - Custom")
-    end
+        NotifierNew({Title = "UI", Content = "Accent color updated", Duration = 2})
+    end,
 })
-UISettingsSection:Button({
-    Title = "Get Theme Name",
+
+UISettings:AddButton({
+    Name = "Get Theme",
     Callback = function()
-        pcall(function() setclipboard("Nova Neon") end)
-        Notify({ Title = "✅ Theme Copied", Content = "Theme name copied to clipboard!", Duration = 3 })
+        NotifierNew({Title = "Theme", Content = "Current theme: Nova Neon", Duration = 3})
     end
 })
 
--- ============================
--- Config Tab (sections opened)
--- ============================
-local ConfigTab = Window:Tab({ Title = "Config", Icon = "folder", EnableScrolling = true })
-local ConfigSection = ConfigTab:Section({ Title = "Config Manager", Icon = "archive", Opened = true })
-ConfigSection:Paragraph({ Title = "Configurations", Content = "Здесь будут храниться настройки. Функции Save/Load отображаются как заглушки." })
-ConfigSection:Button({
-    Title = "Save Current Settings (placeholder)",
-    Callback = function()
-        Notify({ Title = "Config", Content = "Сохранение пока не реализовано. (WIP)", Duration = 3 })
-    end
+-- Theme Tab
+local ThemeTab = Window:DrawTab({
+    Icon = "paintbrush",
+    Name = "Themes",
+    Type = "Single"
 })
-ConfigSection:Button({
-    Title = "Load Settings (placeholder)",
-    Callback = function()
-        Notify({ Title = "Config", Content = "Загрузка пока не реализована. (WIP)", Duration = 3 })
+
+ThemeTab:DrawSection({ Name = "🎨 UI Themes" }):AddDropdown({
+    Name = "Select Theme",
+    Default = "Nova Neon",
+    Flag = "Theme",
+    Values = {
+        "Nova Neon",
+        "Dark Green",
+        "Dark Blue",
+        "Purple Rose",
+        "Skeet"
+    },
+    Callback = function(v)
+        -- Map simple themes (Nova Neon is already applied)
+        if v == "Nova Neon" then
+            WindUI:SetTheme("Nova Neon")
+            NotifierNew({Title = "Theme", Content = "Nova Neon applied", Duration = 2})
+        else
+            -- fallback: change accent roughly
+            local palette = {
+                ["Dark Green"] = Color3.fromRGB(0,150,80),
+                ["Dark Blue"] = Color3.fromRGB(40,120,255),
+                ["Purple Rose"] = Color3.fromRGB(180,60,200),
+                ["Skeet"] = Color3.fromRGB(0,200,200),
+            }
+            local accent = palette[v] or Color3.fromRGB(120,80,255)
+            WindUI:AddTheme({ Name = "CustomTheme_" .. v, Accent = accent })
+            WindUI:SetTheme("CustomTheme_" .. v)
+            NotifierNew({Title = "Theme", Content = v .. " applied", Duration = 2})
+        end
     end
 })
 
--- ============================
--- Information Tab (sections opened, no GitHub button)
--- ============================
-local InfoTab = Window:Tab({ Title = "Information", Icon = "info", EnableScrolling = true })
-local InfoSection = InfoTab:Section({ Title = "💫 NovaAxis Hub", Icon = "sparkles", Opened = true })
-InfoSection:Paragraph({
-    Title = "About",
-    Content = "NovaAxis Hub — WindUI rewrite v4.8\nGame: Steal A Femboy\nAuthor: NovaAxis"
+-- Config Tab (config manager)
+local ConfigTab = Window:DrawTab({
+    Icon = "folder",
+    Name = "Config",
+    Type = "Single",
+    EnableScrolling = true
 })
-InfoSection:Button({
-    Title = "🌐 Discord Server",
-    Desc = "Copy Discord invite to clipboard",
+
+local ConfigSection = ConfigTab:DrawSection({
+    Name = "Config Manager",
+})
+
+ConfigSection:AddParagraph({
+    Title = "💾 Config",
+    Content = "This section contains save/load placeholders for settings. Currently stored in session memory."
+})
+
+ConfigSection:AddButton({
+    Name = "Save Current Settings",
     Callback = function()
-        pcall(function() setclipboard("https://discord.gg/Eg98P4wf2V") end)
-        Notify({ Title = "✅ Copied", Content = "Discord invite copied to clipboard!", Duration = 3, Icon = "copy" })
+        ConfigManager:Save()
     end
 })
--- Removed 'Copy GitHub (author)' button as requested
 
--- ============================
--- Final logs / ready
--- ============================
-DebugLog("NovaAxis Hub v4.8 UI built. All sections opened by default.", false)
-print("✅ NovaAxis Hub loaded (WindUI v4.8 - full)")
-print("⌨️ Press Left Alt to toggle UI")
+ConfigSection:AddButton({
+    Name = "Load Settings",
+    Callback = function()
+        ConfigManager:Load()
+    end
+})
 
--- End of script.
+-- Initialization of ConfigManager store (optional)
+ConfigManager.current = ConfigManager.current or {}
+
+-- ----------------------------
+-- Final prints and ready state
+-- ----------------------------
+print("✅ NovaAxis Hub (99 Nights) loaded successfully (WindUI, Compkiller-free).")
+print("⌨️ Press Left Alt to toggle UI.")
+
+-- End of file
