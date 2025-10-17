@@ -1,8 +1,8 @@
 --[[ 
-    💫 NovaAxis Hub - Steal A Femboy (WindUI full rewrite, bypass auto-enable)
+    💫 NovaAxis Hub - Steal A Femboy (WindUI full, v4.7)
     Author: NovaAxis (interface ported to WindUI)
-    Version: 4.6-full
-    Notes: Full, unabridged version. WindUI loaded from GitHub release.
+    Version: 4.7-full
+    Notes: Complete script. WindUI loaded from GitHub release.
 ]]
 
 -- Load WindUI (latest)
@@ -45,10 +45,10 @@ local autoStealEnabled = false
 local autoStealDelay = 5
 local promptTimeout = 5
 
--- Create a neon theme (Nova Neon: accent RGB(120,80,255))
+-- Theme: Nova Neon (Accent RGB 120,80,255)
 WindUI:AddTheme({
     Name = "Nova Neon",
-    Accent = Color3.fromRGB(120, 80, 255),            -- strong neon accent
+    Accent = Color3.fromRGB(120, 80, 255),
     Dialog = Color3.fromRGB(18, 18, 20),
     Outline = Color3.fromRGB(255, 255, 255),
     Text = Color3.fromRGB(230, 230, 230),
@@ -57,12 +57,10 @@ WindUI:AddTheme({
     Button = Color3.fromRGB(50, 40, 60),
     Icon = Color3.fromRGB(190, 180, 255)
 })
-
 WindUI:SetTheme("Nova Neon")
 
--- Notification helper
+-- Notify helper
 local function Notify(opts)
-    -- opts: {Title, Content, Duration, Icon}
     WindUI:Notify({
         Title = opts.Title or "Notification",
         Content = opts.Content or "",
@@ -71,25 +69,22 @@ local function Notify(opts)
     })
 end
 
--- Create Config Manager placeholder (WindUI may have own config API; placeholder)
+-- ConfigManager placeholder
 local ConfigManager = {
     Directory = "NovaAxis-FemboySteal",
     Config = "Default-Config"
 }
 
--- -------------------------
--- Utility functions (kept from original, unchanged behavior)
--- -------------------------
+-- ===========================
+-- Anti-cheat bypass functions
+-- ===========================
 local function SetupKickProtection()
     local mt = getrawmetatable(game)
     if not mt then return end
-    
     local oldNamecall = mt.__namecall
-    
     if setreadonly then
         setreadonly(mt, false)
     end
-    
     mt.__namecall = newcclosure(function(self, ...)
         local method = getnamecallmethod()
         if method == "Kick" then
@@ -101,10 +96,8 @@ end
 
 local function DisconnectAllConnections(object, signalName)
     if not object then return end
-    local success, signal = pcall(function() return object[signalName] end)
-    if not success then return end
-    if not signal then return end
-    
+    local ok, signal = pcall(function() return object[signalName] end)
+    if not ok or not signal then return end
     local connections = getconnections(signal)
     if connections then
         for _, conn in pairs(connections) do
@@ -117,43 +110,43 @@ end
 
 local function ExecuteBypass()
     SetupKickProtection()
-    
+
     repeat task.wait() until player
     repeat task.wait() until player.Character
-    
+
     local character = player.Character
-    
+
     if character then
         local humanoid = character:FindFirstChild("Humanoid")
         if humanoid then
             DisconnectAllConnections(humanoid, "StateChanged")
             DisconnectAllConnections(humanoid, "Changed")
         end
-        
+
         local rootPart = character:FindFirstChild("HumanoidRootPart")
         if rootPart then
             DisconnectAllConnections(rootPart, "ChildAdded")
         end
-        
+
         DisconnectAllConnections(character, "ChildRemoved")
     end
-    
+
     local backpack = player:FindFirstChild("Backpack")
     if backpack then
         DisconnectAllConnections(backpack, "ChildAdded")
     end
-    
+
     local camera = workspace.CurrentCamera
     if camera then
         DisconnectAllConnections(camera, "ChildAdded")
     end
-    
+
     local antiScript = script.Parent and script.Parent:FindFirstChild("Anti")
     if antiScript then
         antiScript.Disabled = true
         antiScript:Destroy()
     end
-    
+
     task.spawn(function()
         while task.wait(5) do
             local newAnti = script.Parent and script.Parent:FindFirstChild("Anti")
@@ -161,7 +154,7 @@ local function ExecuteBypass()
                 newAnti.Disabled = true
                 newAnti:Destroy()
             end
-            
+
             if character and character.Parent then
                 local currentHumanoid = character:FindFirstChild("Humanoid")
                 if currentHumanoid then
@@ -173,7 +166,7 @@ local function ExecuteBypass()
 end
 
 local function SafeExecute()
-    local success, error = pcall(ExecuteBypass)
+    local success, err = pcall(ExecuteBypass)
     if not success then
         local mt = getrawmetatable(game)
         if mt then
@@ -184,22 +177,15 @@ local function SafeExecute()
                 return old(self, ...)
             end
         end
-        Notify({
-            Title = "⚠️ Warning",
-            Content = "Bypass partial failure, kick protection enabled",
-            Duration = 3,
-            Icon = "alert-circle"
-        });
+        Notify({ Title = "⚠️ Warning", Content = "Bypass partial failure, kick protection enabled", Duration = 3, Icon = "alert-circle" })
     else
-        Notify({
-            Title = "🛡️ Success",
-            Content = "Anti-Cheat bypassed successfully!",
-            Duration = 2,
-            Icon = "shield-check"
-        });
+        Notify({ Title = "🛡️ Success", Content = "Anti-Cheat bypassed successfully!", Duration = 2, Icon = "shield-check" })
     end
 end
 
+-- ===========================
+-- Game logic functions (unchanged)
+-- ===========================
 local function getAnyBasePart(model)
     if not model then return nil end
     if model.PrimaryPart and model.PrimaryPart:IsA("BasePart") then 
@@ -300,7 +286,7 @@ end
 local function activateProximityPromptWithTimeout(prompt, timeout)
     local success = false
     local errorMessage = nil
-    
+
     local thread = task.spawn(function()
         local result, err = pcall(function()
             if prompt:IsA("ProximityPrompt") then
@@ -308,7 +294,7 @@ local function activateProximityPromptWithTimeout(prompt, timeout)
                 local holdDuration = prompt.HoldDuration or 0.5
                 task.wait(holdDuration)
                 prompt:InputHoldEnd()
-                
+
                 local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
                 if remoteEvent then
                     remoteEvent:FireServer()
@@ -318,32 +304,27 @@ local function activateProximityPromptWithTimeout(prompt, timeout)
                 error("Object is not a ProximityPrompt")
             end
         end)
-        
+
         if not result then
             errorMessage = err
         end
     end)
-    
+
     local startTime = tick()
     while not success and (tick() - startTime) < timeout do
         task.wait(0.1)
     end
-    
+
     if not success then
         return false, "Timeout: Prompt not activated in " .. timeout .. " seconds"
     end
-    
+
     return success, errorMessage
 end
 
 local function executeInstantSteal()
     if isRunning then
-        Notify({
-            Title = "⚠️ Warning",
-            Content = "Already running!",
-            Duration = 2,
-            Icon = "alert-circle"
-        });
+        Notify({ Title = "⚠️ Warning", Content = "Already running!", Duration = 2, Icon = "alert-circle" })
         return
     end
 
@@ -351,12 +332,7 @@ local function executeInstantSteal()
 
     local character = player.Character
     if not character then
-        Notify({
-            Title = "❌ Error",
-            Content = "Character not found!",
-            Duration = 3,
-            Icon = "x"
-        });
+        Notify({ Title = "❌ Error", Content = "Character not found!", Duration = 3, Icon = "x" })
         isRunning = false
         return
     end
@@ -365,48 +341,28 @@ local function executeInstantSteal()
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 
     if not humanoid or not humanoidRootPart then
-        Notify({
-            Title = "❌ Error",
-            Content = "Humanoid/HRP not found!",
-            Duration = 3,
-            Icon = "x"
-        });
+        Notify({ Title = "❌ Error", Content = "Humanoid/HRP not found!", Duration = 3, Icon = "x" })
         isRunning = false
         return
     end
 
     local playerBase = findPlayerBase()
     if not playerBase then
-        Notify({
-            Title = "❌ Error",
-            Content = "Your base not found!",
-            Duration = 3,
-            Icon = "x"
-        });
+        Notify({ Title = "❌ Error", Content = "Your base not found!", Duration = 3, Icon = "x" })
         isRunning = false
         return
     end
 
     local targetModel, targetBase = findTargetFemboy(playerBase)
     if not targetModel then
-        Notify({
-            Title = "❌ Error",
-            Content = "Target not found!",
-            Duration = 3,
-            Icon = "x"
-        });
+        Notify({ Title = "❌ Error", Content = "Target not found!", Duration = 3, Icon = "x" })
         isRunning = false
         return
     end
 
     local targetPart = getAnyBasePart(targetModel)
     if not targetPart then
-        Notify({
-            Title = "❌ Error",
-            Content = "Could not find target part",
-            Duration = 3,
-            Icon = "x"
-        });
+        Notify({ Title = "❌ Error", Content = "Could not find target part", Duration = 3, Icon = "x" })
         isRunning = false
         return
     end
@@ -418,20 +374,10 @@ local function executeInstantSteal()
     humanoid.WalkSpeed = 0
     humanoid.JumpPower = 0
 
-    Notify({
-        Title = "✨ Info",
-        Content = "Teleporting to target...",
-        Duration = 2,
-        Icon = "arrow-right-circle"
-    });
+    Notify({ Title = "✨ Info", Content = "Teleporting to target...", Duration = 2, Icon = "arrow-right-circle" })
 
     if not teleportCharacterToPosition(targetPosition) then
-        Notify({
-            Title = "❌ Error",
-            Content = "Teleportation failed!",
-            Duration = 3,
-            Icon = "x"
-        });
+        Notify({ Title = "❌ Error", Content = "Teleportation failed!", Duration = 3, Icon = "x" })
         humanoid.WalkSpeed = savedWalkSpeed
         humanoid.JumpPower = savedJumpPower
         isRunning = false
@@ -444,45 +390,24 @@ local function executeInstantSteal()
 
     local promptActivated = false
     if prompt then
-        Notify({
-            Title = "⏳ Info",
-            Content = "Activating prompt... (" .. promptTimeout .. "s timeout)",
-            Duration = 2,
-            Icon = "clock"
-        });
-        
-        local success, errorMessage = activateProximityPromptWithTimeout(prompt, promptTimeout)
-        
-        if success then
+        Notify({ Title = "⏳ Info", Content = "Activating prompt... (" .. promptTimeout .. "s timeout)", Duration = 2, Icon = "clock" })
+        local ok, err = activateProximityPromptWithTimeout(prompt, promptTimeout)
+
+        if ok then
             promptActivated = true
-            Notify({
-                Title = "✅ Success",
-                Content = "Prompt activated!",
-                Duration = 2,
-                Icon = "check"
-            });
+            Notify({ Title = "✅ Success", Content = "Prompt activated!", Duration = 2, Icon = "check" })
             task.wait(1)
         else
-            Notify({
-                Title = "⚠️ Warning",
-                Content = errorMessage or "Prompt timeout!",
-                Duration = 3,
-                Icon = "alert-circle"
-            });
+            Notify({ Title = "⚠️ Warning", Content = err or "Prompt timeout!", Duration = 3, Icon = "alert-circle" })
         end
     else
-        Notify({
-            Title = "⚠️ Warning",
-            Content = "Prompt not found!",
-            Duration = 2,
-            Icon = "alert-circle"
-        });
+        Notify({ Title = "⚠️ Warning", Content = "Prompt not found!", Duration = 2, Icon = "alert-circle" })
     end
 
     local spawn = playerBase:FindFirstChild("Spawn")
     if spawn then
         local spawnPosition
-        
+
         if spawn:IsA("BasePart") then
             spawnPosition = spawn.Position
         else
@@ -493,20 +418,10 @@ local function executeInstantSteal()
         end
 
         if spawnPosition then
-            Notify({
-                Title = "🏠 Info",
-                Content = "Returning to base...",
-                Duration = 2,
-                Icon = "home"
-            });
+            Notify({ Title = "🏠 Info", Content = "Returning to base...", Duration = 2, Icon = "home" })
             teleportCharacterToPosition(spawnPosition + Vector3.new(0, 3, 0))
             task.wait(0.3)
-            Notify({
-                Title = "✅ Success",
-                Content = "Returned successfully!",
-                Duration = 2,
-                Icon = "check"
-            });
+            Notify({ Title = "✅ Success", Content = "Returned successfully!", Duration = 2, Icon = "check" })
         end
     end
 
@@ -515,31 +430,33 @@ local function executeInstantSteal()
     isRunning = false
 end
 
--- Keep WalkSpeed when character respawns
-local function keepWalkSpeedOnRespawn()
-    player.CharacterAdded:Connect(function(character)
-        task.wait(0.5)
-        if walkSpeedEnabled then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.WalkSpeed = customWalkSpeed
-            end
-        end
-    end)
-end
+-- ===========================
+-- Movement / Noclip state (UI-level)
+-- ===========================
+local walkSpeedEnabled = false
+local customWalkSpeed = 16
+local noclipEnabled = false
+local noclipConnection = nil
 
--- === AUTO-RUN BYPASS BEFORE UI CREATION ===
--- Run bypass immediately so anti-cheat protections are disabled before anything else initializes.
--- Use pcall to avoid blocking UI creation if bypass errors.
-pcall(function()
-    SafeExecute()
+-- Keep WalkSpeed when character respawns
+player.CharacterAdded:Connect(function(character)
+    task.wait(0.5)
+    if walkSpeedEnabled then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = customWalkSpeed
+        end
+    end
 end)
 
--- -------------------------
--- Build WindUI layout (Tabs, Sections, Elements)
--- -------------------------
+-- ===========================
+-- Run bypass immediately (before UI creation)
+-- ===========================
+pcall(function() SafeExecute() end)
 
--- Create Window
+-- ===========================
+-- Build WindUI layout
+-- ===========================
 local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
     Icon = "sparkles",
@@ -553,31 +470,16 @@ local Window = WindUI:CreateWindow({
     SideBarWidth = 220,
     BackgroundImageTransparency = 0.45,
 })
-
--- Set default toggle key (LeftAlt)
 Window:SetToggleKey(Enum.KeyCode.LeftAlt)
 
-Notify({Title = "💫 NovaAxis Hub", Content = "Successfully loaded for Steal A Femboy!", Duration = 4, Icon = "sparkles"})
-
--- -------------------------
--- Variables for movement/noclip kept in UI scope
--- -------------------------
-local walkSpeedEnabled = false
-local customWalkSpeed = 16
-local noclipEnabled = false
-local noclipConnection = nil
+Notify({ Title = "💫 NovaAxis Hub", Content = "Successfully loaded for Steal A Femboy!", Duration = 3, Icon = "sparkles" })
 
 -- -------------------------
 -- Main Tab: Femboy Stealer
 -- -------------------------
 local mainTab = Window:Tab({ Title = "Femboy Stealer", Icon = "target" })
 
-local StealSection = mainTab:Section({
-    Title = "⚡ Instant Steal",
-    Icon = "zap",
-    Opened = true
-})
-
+local StealSection = mainTab:Section({ Title = "⚡ Instant Steal", Icon = "zap", Opened = true })
 StealSection:Button({
     Title = "⚡ Execute Instant Steal",
     Desc = "Teleport, activate prompt, return.",
@@ -585,28 +487,17 @@ StealSection:Button({
         task.spawn(function()
             local ok, err = pcall(executeInstantSteal)
             if not ok then
-                Notify({
-                    Title = "❌ Error",
-                    Content = "Error: " .. tostring(err),
-                    Duration = 3,
-                    Icon = "x"
-                })
+                Notify({ Title = "❌ Error", Content = "Error: " .. tostring(err), Duration = 3, Icon = "x" })
             end
         end)
     end
 })
-
 StealSection:Paragraph({
     Title = "ℹ️ How it works",
-    Content = "Teleports to target femboy, activates prompt, and returns to your base automatically."
+    Content = "Телепортируется к цели, активирует промпт и возвращается на вашу базу автоматически."
 })
 
-local AutoSection = mainTab:Section({
-    Title = "🔄 Auto Steal",
-    Icon = "repeat",
-    Opened = true
-})
-
+local AutoSection = mainTab:Section({ Title = "🔄 Auto Steal", Icon = "repeat", Opened = true })
 AutoSection:Toggle({
     Title = "Enable Auto Steal",
     Desc = "Automatically steal every N seconds",
@@ -614,13 +505,7 @@ AutoSection:Toggle({
     Callback = function(value)
         autoStealEnabled = value
         if value then
-            Notify({
-                Title = "✅ Auto Steal",
-                Content = "Auto Steal Enabled!",
-                Duration = 2,
-                Icon = "play"
-            });
-            
+            Notify({ Title = "✅ Auto Steal", Content = "Auto Steal Enabled!", Duration = 2, Icon = "play" })
             task.spawn(function()
                 while autoStealEnabled do
                     if not isRunning then
@@ -630,38 +515,24 @@ AutoSection:Toggle({
                 end
             end)
         else
-            Notify({
-                Title = "❌ Auto Steal",
-                Content = "Auto Steal Disabled!",
-                Duration = 2,
-                Icon = "pause"
-            });
+            Notify({ Title = "❌ Auto Steal", Content = "Auto Steal Disabled!", Duration = 2, Icon = "pause" })
         end
     end
-});
-
+})
 AutoSection:Slider({
     Title = "Auto Steal Delay (seconds)",
     Step = 1,
     Value = { Min = 1, Max = 60, Default = 5 },
-    Callback = function(value)
-        autoStealDelay = value
-    end
-});
+    Callback = function(value) autoStealDelay = value end
+})
 
-local SettingsSection = mainTab:Section({
-    Title = "⚙️ Settings",
-    Icon = "settings",
-    Opened = true
-});
-
+local SettingsSection = mainTab:Section({ Title = "⚙️ Settings", Icon = "settings", Opened = true })
 SettingsSection:Keybind({
     Title = "Quick Steal Hotkey",
     Desc = "Set quick steal hotkey",
     Value = "F",
     Callback = function(v)
-        local key = v
-        local successKey, code = pcall(function() return Enum.KeyCode[key] end)
+        local successKey, code = pcall(function() return Enum.KeyCode[v] end)
         if successKey and code then
             if _G.NovaAxisQuickStealConnection then
                 _G.NovaAxisQuickStealConnection:Disconnect()
@@ -675,207 +546,117 @@ SettingsSection:Keybind({
             end)
         end
     end
-});
-
+})
 SettingsSection:Slider({
     Title = "Prompt Timeout (seconds)",
     Step = 1,
     Value = { Min = 1, Max = 10, Default = 5 },
     Callback = function(value)
         promptTimeout = value
-        Notify({
-            Title = "⚙️ Settings",
-            Content = "Timeout set to " .. value .. "s",
-            Duration = 2,
-            Icon = "clock"
-        });
+        Notify({ Title = "⚙️ Settings", Content = "Timeout set to " .. value .. "s", Duration = 2, Icon = "clock" })
     end
-});
+})
 
-local TargetSection = mainTab:Section({
-    Title = "🎯 Target List",
-    Icon = "list",
-    Opened = false
-});
-
+local TargetSection = mainTab:Section({ Title = "🎯 Target List", Icon = "list", Opened = false })
 TargetSection:Paragraph({
     Title = "🎯 Targets",
     Content = "• Any name with 'femboy'\n• Roommate\n• Casual Astolfo\n• Chihiro Fujisaki\n• Venti\n• Gasper\n• Saika\n• J*b Application\n• Mythical Lucky Block\n• Nagisa Shiota\n• Felix\n• Rimuru"
-});
-
--- Remove in-Femboy Information section (per request) — Information moved to dedicated tab
+})
 
 -- -------------------------
--- Utility Tab (movement only; bypass removed from UI)
+-- Utility Tab (icon fixed to 'wrench', content non-empty)
 -- -------------------------
-local UtilityTab = Window:Tab({
-    Title = "Utility",
-    Icon = "tool",
-    EnableScrolling = true
-});
-
+local UtilityTab = Window:Tab({ Title = "Utility", Icon = "wrench", EnableScrolling = true })
 UtilityTab:Paragraph({
     Title = "ℹ️ About Utility",
     Content = "Здесь находятся вспомогательные функции — изменение скорости и прохождение сквозь стены (Noclip)."
-});
+})
 
-local MovementSection = UtilityTab:Section({
-    Title = "🏃 Movement",
-    Icon = "run",
-    Opened = true
-});
-
+local MovementSection = UtilityTab:Section({ Title = "🏃 Movement", Icon = "run", Opened = true })
 MovementSection:Toggle({
     Title = "Enable Custom WalkSpeed",
     Default = false,
     Callback = function(value)
         walkSpeedEnabled = value
-        
         if value then
-            local character = player.Character
-            if character then
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
+            local char = player.Character
+            if char then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
                 if humanoid then
                     humanoid.WalkSpeed = customWalkSpeed
-                    Notify({
-                        Title = "✅ WalkSpeed",
-                        Content = "WalkSpeed set to " .. customWalkSpeed,
-                        Duration = 2,
-                        Icon = "run"
-                    });
+                    Notify({ Title = "✅ WalkSpeed", Content = "WalkSpeed set to " .. customWalkSpeed, Duration = 2, Icon = "run" })
                 end
             end
         else
-            local character = player.Character
-            if character then
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
+            local char = player.Character
+            if char then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
                 if humanoid then
                     humanoid.WalkSpeed = 16
-                    Notify({
-                        Title = "🔄 WalkSpeed",
-                        Content = "WalkSpeed reset to 16",
-                        Duration = 2,
-                        Icon = "refresh-ccw"
-                    });
+                    Notify({ Title = "🔄 WalkSpeed", Content = "WalkSpeed reset to 16", Duration = 2, Icon = "refresh-ccw" })
                 end
             end
         end
     end
-});
-
+})
 MovementSection:Slider({
     Title = "WalkSpeed Value",
     Step = 1,
     Value = { Min = 16, Max = 350, Default = 16 },
     Callback = function(value)
         customWalkSpeed = value
-        
         if walkSpeedEnabled then
-            local character = player.Character
-            if character then
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.WalkSpeed = customWalkSpeed
-                end
+            local char = player.Character
+            if char then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid then humanoid.WalkSpeed = customWalkSpeed end
             end
         end
     end
-});
-
+})
 MovementSection:Toggle({
     Title = "Enable Noclip",
     Default = false,
     Callback = function(value)
         noclipEnabled = value
-        
         if value then
-            Notify({
-                Title = "✅ Noclip",
-                Content = "Noclip Enabled!",
-                Duration = 2,
-                Icon = "move"
-            });
-            
+            Notify({ Title = "✅ Noclip", Content = "Noclip Enabled!", Duration = 2, Icon = "move" })
             noclipConnection = RunService.Stepped:Connect(function()
-                if noclipEnabled then
-                    local character = player.Character
-                    if character then
-                        for _, part in pairs(character:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                part.CanCollide = false
-                            end
-                        end
+                if not noclipEnabled then return end
+                local char = player.Character
+                if char then
+                    for _, part in pairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
                     end
                 end
             end)
         else
-            Notify({
-                Title = "🔄 Noclip",
-                Content = "Noclip Disabled!",
-                Duration = 2,
-                Icon = "move"
-            });
-            
-            if noclipConnection then
-                noclipConnection:Disconnect()
-                noclipConnection = nil
-            end
-            
-            local character = player.Character
-            if character then
-                for _, part in pairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = true
-                    end
+            Notify({ Title = "🔄 Noclip", Content = "Noclip Disabled!", Duration = 2, Icon = "move" })
+            if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
+            local char = player.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = true end
                 end
             end
         end
     end
-});
-
--- Keep WalkSpeed when character respawns
-player.CharacterAdded:Connect(function(character)
-    task.wait(0.5)
-    if walkSpeedEnabled then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = customWalkSpeed
-        end
-    end
-end);
+})
 
 -- -------------------------
--- UI Settings Tab
+-- UI Settings Tab (ensure non-empty)
 -- -------------------------
-local SettingTab = Window:Tab({
-    Icon = "settings",
-    Title = "UI Settings",
-    EnableScrolling = true
-});
-
-local UISettings = SettingTab:Section({
-    Title = "🎨 UI Customization",
-    Icon = "paintbrush"
-});
-
-UISettings:Paragraph({
-    Title = "Theme",
-    Content = "Текущая тема: Nova Neon (Accent: RGB(120,80,255)). Вы можете поменять акцентный цвет ниже."
-});
-
+local SettingTab = Window:Tab({ Icon = "settings", Title = "UI Settings", EnableScrolling = true })
+local UISettings = SettingTab:Section({ Title = "🎨 UI Customization", Icon = "paintbrush" })
+UISettings:Paragraph({ Title = "Theme", Content = "Текущая тема: Nova Neon (Accent: RGB 120,80,255). Настройте акцентный цвет ниже." })
 UISettings:Toggle({
     Title = "Always Show Frame",
     Default = false,
     Callback = function(v)
-        -- Placeholder: WindUI may not expose direct AlwaysShow property; provide feedback
-        if v then
-            Notify({Title = "UI", Content = "Always Show Frame enabled (placeholder).", Duration = 2})
-        else
-            Notify({Title = "UI", Content = "Always Show Frame disabled (placeholder).", Duration = 2})
-        end
+        if v then Notify({ Title = "UI", Content = "Always Show Frame enabled (placeholder).", Duration = 2 }) 
+        else Notify({ Title = "UI", Content = "Always Show Frame disabled (placeholder).", Duration = 2 }) end
     end
-});
-
+})
 UISettings:Colorpicker({
     Title = "Highlight Color",
     Default = Color3.fromRGB(120, 80, 255),
@@ -893,78 +674,62 @@ UISettings:Colorpicker({
         })
         WindUI:SetTheme("Nova Neon - Custom")
     end
-});
-
+})
 UISettings:Button({
-    Title = "Get Theme",
+    Title = "Get Theme Name",
     Callback = function()
         pcall(function() setclipboard("Nova Neon") end)
-        Notify({Title = "✅ Theme Copied", Content = "Theme name copied to clipboard!", Duration = 3})
+        Notify({ Title = "✅ Theme Copied", Content = "Theme name copied to clipboard!", Duration = 3 })
     end
-});
+})
 
 -- -------------------------
--- Config Tab
+-- Config Tab (ensure non-empty)
 -- -------------------------
-local ConfigTab = Window:Tab({
-    Title = "Config",
-    Icon = "folder",
-    EnableScrolling = true
-});
-
-local ConfigUI = ConfigTab:Section({
-    Title = "Config Manager",
-    Icon = "archive"
-});
-
-ConfigUI:Paragraph({
-    Title = "Config",
-    Content = "WindUI предоставляет API для конфигураций. Здесь можно будет добавить сохранение/загрузку настроек в будущем."
-});
-
+local ConfigTab = Window:Tab({ Title = "Config", Icon = "folder", EnableScrolling = true })
+local ConfigUI = ConfigTab:Section({ Title = "Config Manager", Icon = "archive" })
+ConfigUI:Paragraph({ Title = "Configurations", Content = "Здесь будут храниться настройки. Функции Save/Load работают как заглушки пока." })
 ConfigUI:Button({
-    Title = "Open Config Folder",
+    Title = "Save Current Settings (placeholder)",
     Callback = function()
-        -- Placeholder behavior: we can copy folder path or notify
-        Notify({Title = "Config", Content = "Config folder: " .. tostring(ConfigManager.Directory), Duration = 3})
+        Notify({ Title = "Config", Content = "Сохранение пока не реализовано. (WIP)", Duration = 3 })
     end
-});
+})
+ConfigUI:Button({
+    Title = "Load Settings (placeholder)",
+    Callback = function()
+        Notify({ Title = "Config", Content = "Загрузка пока не реализована. (WIP)", Duration = 3 })
+    end
+})
 
 -- -------------------------
--- Information Tab (new)
+-- Information Tab (new, no banner)
 -- -------------------------
-local InfoTab = Window:Tab({
-    Title = "Information",
-    Icon = "info",
-    EnableScrolling = true
-});
-
-local InfoSection = InfoTab:Section({
-    Title = "💫 NovaAxis Hub",
-    Icon = "sparkles"
-});
-
+local InfoTab = Window:Tab({ Title = "Information", Icon = "info", EnableScrolling = true })
+local InfoSection = InfoTab:Section({ Title = "💫 NovaAxis Hub", Icon = "sparkles" })
 InfoSection:Paragraph({
-    Title = "NovaAxis Hub",
-    Content = "WindUI rewrite version 4.6-full\nGame: Steal A Femboy\nCreated by: NovaAxis"
-});
-
+    Title = "About",
+    Content = "NovaAxis Hub — WindUI rewrite v4.7\nGame: Steal A Femboy\nAuthor: NovaAxis"
+})
 InfoSection:Button({
     Title = "🌐 Discord Server",
-    Desc = "Join NovaAxis Community",
+    Desc = "Copy Discord invite to clipboard",
     Callback = function()
         pcall(function() setclipboard("https://discord.gg/Eg98P4wf2V") end)
-        Notify({Title = "✅ Copied", Content = "Discord invite copied to clipboard!", Duration = 3, Icon = "copy"})
+        Notify({ Title = "✅ Copied", Content = "Discord invite copied to clipboard!", Duration = 3, Icon = "copy" })
     end
-});
+})
+InfoSection:Button({
+    Title = "📋 Copy GitHub (author)",
+    Desc = "Copy author's GitHub link",
+    Callback = function()
+        pcall(function() setclipboard("https://github.com/NovaAxis") end)
+        Notify({ Title = "✅ Copied", Content = "GitHub link copied to clipboard!", Duration = 3, Icon = "copy" })
+    end
+})
 
-InfoSection:Paragraph({
-    Title = "Support",
-    Content = "Если хочешь добавить баннер, ник или кастомный контакт — скажи, добавлю."
-});
-
--- -------------------------
--- Final initialization logs
--- -------------------------
-print("✅ NovaAxis Hub loaded (WindUI - full)")
+-- ===========================
+-- Final logs
+-- ===========================
+print("✅ NovaAxis Hub loaded (WindUI v4.7 - full)")
 print("⌨️ Press Left Alt to toggle UI")
