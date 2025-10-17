@@ -147,13 +147,13 @@ local function SafeExecute()
                 return old(self, ...)
             end
         end
-        Library:Notify({
+        WindUI:Notify({
             Title = "⚠️ Warning",
             Content = "Bypass partial failure, kick protection enabled",
             Duration = 3
         })
     else
-        Library:Notify({
+        WindUI:Notify({
             Title = "🛡️ Success",
             Content = "Anti-Cheat bypassed successfully!",
             Duration = 2
@@ -299,7 +299,7 @@ end
 
 local function executeInstantSteal()
     if isRunning then
-        Library:Notify({
+        WindUI:Notify({
             Title = "⚠️ Warning",
             Content = "Already running!",
             Duration = 2
@@ -311,7 +311,7 @@ local function executeInstantSteal()
 
     local character = player.Character
     if not character then
-        Library:Notify({
+        WindUI:Notify({
             Title = "❌ Error",
             Content = "Character not found!",
             Duration = 3
@@ -324,7 +324,7 @@ local function executeInstantSteal()
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 
     if not humanoid or not humanoidRootPart then
-        Library:Notify({
+        WindUI:Notify({
             Title = "❌ Error",
             Content = "Humanoid/HRP not found!",
             Duration = 3
@@ -335,7 +335,7 @@ local function executeInstantSteal()
 
     local playerBase = findPlayerBase()
     if not playerBase then
-        Library:Notify({
+        WindUI:Notify({
             Title = "❌ Error",
             Content = "Your base not found!",
             Duration = 3
@@ -346,7 +346,7 @@ local function executeInstantSteal()
 
     local targetModel, targetBase = findTargetFemboy(playerBase)
     if not targetModel then
-        Library:Notify({
+        WindUI:Notify({
             Title = "❌ Error",
             Content = "Target not found!",
             Duration = 3
@@ -357,7 +357,7 @@ local function executeInstantSteal()
 
     local targetPart = getAnyBasePart(targetModel)
     if not targetPart then
-        Library:Notify({
+        WindUI:Notify({
             Title = "❌ Error",
             Content = "Could not find target part",
             Duration = 3
@@ -373,14 +373,14 @@ local function executeInstantSteal()
     humanoid.WalkSpeed = 0
     humanoid.JumpPower = 0
 
-    Library:Notify({
+    WindUI:Notify({
         Title = "✨ Info",
         Content = "Teleporting to target...",
         Duration = 2
     })
 
     if not teleportCharacterToPosition(targetPosition) then
-        Library:Notify({
+        WindUI:Notify({
             Title = "❌ Error",
             Content = "Teleportation failed!",
             Duration = 3
@@ -397,7 +397,7 @@ local function executeInstantSteal()
 
     local promptActivated = false
     if prompt then
-        Library:Notify({
+        WindUI:Notify({
             Title = "⏳ Info",
             Content = "Activating prompt... (" .. promptTimeout .. "s timeout)",
             Duration = 2
@@ -407,21 +407,21 @@ local function executeInstantSteal()
         
         if success then
             promptActivated = true
-            Library:Notify({
+            WindUI:Notify({
                 Title = "✅ Success",
                 Content = "Prompt activated!",
                 Duration = 2
             })
             task.wait(1)
         else
-            Library:Notify({
+            WindUI:Notify({
                 Title = "⚠️ Warning",
                 Content = errorMessage or "Prompt timeout!",
                 Duration = 3
             })
         end
     else
-        Library:Notify({
+        WindUI:Notify({
             Title = "⚠️ Warning",
             Content = "Prompt not found!",
             Duration = 2
@@ -442,14 +442,14 @@ local function executeInstantSteal()
         end
 
         if spawnPosition then
-            Library:Notify({
+            WindUI:Notify({
                 Title = "🏠 Info",
                 Content = "Returning to base...",
                 Duration = 2
             })
             teleportCharacterToPosition(spawnPosition + Vector3.new(0, 3, 0))
             task.wait(0.3)
-            Library:Notify({
+            WindUI:Notify({
                 Title = "✅ Success",
                 Content = "Returned successfully!",
                 Duration = 2
@@ -463,43 +463,56 @@ local function executeInstantSteal()
 end
 
 -- Creating Window
-local Window = Library:NewWindow({
+local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
-    Subtitle = "Steal A Femboy v5.0",
+    Author = "NovaAxis | v5.0",
     Size = UDim2.fromOffset(580, 460),
-    KeyCode = Enum.KeyCode.LeftAlt,
+    KeyBind = Enum.KeyCode.LeftAlt,
     Folder = "NovaAxis-FemboySteal",
-    ConfigFile = "NovaAxis-Config",
+    Config = "NovaAxis-Config",
     Theme = "Dark"
 })
 
 -- Welcome Notification
-Library:Notify({
+WindUI:Notify({
     Title = "💫 NovaAxis Hub",
     Content = "Successfully loaded for Steal A Femboy!",
     Duration = 5
 })
 
--- Main Tab
-local MainTab = Window:Tab({
-    Name = "Main Features",
-    Icon = "rbxassetid://7733960981",
-    Color = Color3.fromRGB(255, 100, 150)
+-- Create Sections
+local MainSection = Window:Section({
+    Title = "🌸 Femboy Stealer",
+    Opened = true
+})
+
+local UtilitySection = Window:Section({
+    Title = "⚙️ Utilities",
+    Opened = true
+})
+
+-- Create Tabs
+local MainTab = MainSection:Tab({
+    Title = "Main Features",
+    Icon = "target",
+    Desc = "Instant & Auto Steal"
+})
+
+local UtilityTab = UtilitySection:Tab({
+    Title = "Utility",
+    Icon = "shield",
+    Desc = "Bypass & Movement"
 })
 
 -- Instant Steal Section
-local StealSection = MainTab:Section({
-    Name = "⚡ Instant Steal"
-})
-
-StealSection:Button({
-    Name = "⚡ Execute Instant Steal",
-    Description = "Teleports to target, activates prompt, and returns",
+MainTab:Button({
+    Title = "⚡ Execute Instant Steal",
+    Desc = "Teleports to target, activates prompt, returns",
     Callback = function()
         task.spawn(function()
             local success, errorMessage = pcall(executeInstantSteal)
             if not success then
-                Library:Notify({
+                WindUI:Notify({
                     Title = "❌ Error",
                     Content = "Error: " .. tostring(errorMessage),
                     Duration = 3
@@ -509,28 +522,26 @@ StealSection:Button({
     end
 })
 
-StealSection:Keybind({
-    Name = "Quick Steal Hotkey",
-    Description = "Press this key to instantly execute steal",
+MainTab:Keybind({
+    Title = "Quick Steal Hotkey",
+    Desc = "Press to instantly execute steal",
     Default = Enum.KeyCode.F,
     Callback = function()
         executeInstantSteal()
     end
 })
 
--- Auto Steal Section
-local AutoSection = MainTab:Section({
-    Name = "🔄 Auto Steal"
-})
+MainTab:Divider()
 
-AutoSection:Toggle({
-    Name = "Enable Auto Steal",
-    Description = "Automatically steals femboys with delay",
+-- Auto Steal Section
+MainTab:Toggle({
+    Title = "Enable Auto Steal",
+    Desc = "Automatically steals femboys with delay",
     Default = false,
     Callback = function(value)
         autoStealEnabled = value
         if value then
-            Library:Notify({
+            WindUI:Notify({
                 Title = "✅ Auto Steal",
                 Content = "Auto Steal Enabled!",
                 Duration = 2
@@ -545,7 +556,7 @@ AutoSection:Toggle({
                 end
             end)
         else
-            Library:Notify({
+            WindUI:Notify({
                 Title = "❌ Auto Steal",
                 Content = "Auto Steal Disabled!",
                 Duration = 2
@@ -554,9 +565,9 @@ AutoSection:Toggle({
     end
 })
 
-AutoSection:Slider({
-    Name = "Auto Steal Delay",
-    Description = "Delay between auto steal attempts",
+MainTab:Slider({
+    Title = "Auto Steal Delay",
+    Desc = "Delay between auto steal attempts",
     Min = 1,
     Max = 60,
     Default = 5,
@@ -565,20 +576,18 @@ AutoSection:Slider({
     end
 })
 
--- Settings Section
-local SettingsSection = MainTab:Section({
-    Name = "⚙️ Settings"
-})
+MainTab:Divider()
 
-SettingsSection:Slider({
-    Name = "Prompt Timeout",
-    Description = "Maximum time to wait for prompt activation",
+-- Settings Section
+MainTab:Slider({
+    Title = "Prompt Timeout",
+    Desc = "Maximum time to wait for prompt activation",
     Min = 1,
     Max = 10,
     Default = 5,
     Callback = function(value)
         promptTimeout = value
-        Library:Notify({
+        WindUI:Notify({
             Title = "⚙️ Settings",
             Content = "Timeout set to " .. value .. "s",
             Duration = 2
@@ -586,13 +595,12 @@ SettingsSection:Slider({
     end
 })
 
--- Target List Section
-local TargetSection = MainTab:Section({
-    Name = "🎯 Target List"
-})
+MainTab:Divider()
 
-TargetSection:Label({
-    Text = [[🎯 Detected Targets:
+-- Target List Section
+MainTab:Paragraph({
+    Title = "🎯 Target List",
+    Desc = [[Detected Targets:
 • Any name with 'femboy'
 • Roommate
 • Casual Astolfo
@@ -607,34 +615,21 @@ TargetSection:Label({
 • Rimuru]]
 })
 
--- Utility Tab
-local UtilityTab = Window:Tab({
-    Name = "Utility",
-    Icon = "rbxassetid://7733964854",
-    Color = Color3.fromRGB(100, 200, 255)
-})
-
--- Bypass Section
-local BypassSection = UtilityTab:Section({
-    Name = "🛡️ Anti-Cheat Bypass"
-})
-
-BypassSection:Button({
-    Name = "🛡️ Activate Bypass",
-    Description = "Run this if you experience kicks or detection",
+-- Utility Tab - Bypass Section
+UtilityTab:Button({
+    Title = "🛡️ Activate Bypass",
+    Desc = "Run if you experience kicks or detection",
     Callback = function()
         SafeExecute()
     end
 })
 
--- Movement Section
-local MovementSection = UtilityTab:Section({
-    Name = "🏃 Movement"
-})
+UtilityTab:Divider()
 
-MovementSection:Toggle({
-    Name = "Custom WalkSpeed",
-    Description = "Enable custom walk speed",
+-- Movement Section
+UtilityTab:Toggle({
+    Title = "Custom WalkSpeed",
+    Desc = "Enable custom walk speed",
     Default = false,
     Callback = function(value)
         walkSpeedEnabled = value
@@ -645,7 +640,7 @@ MovementSection:Toggle({
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
                 if humanoid then
                     humanoid.WalkSpeed = customWalkSpeed
-                    Library:Notify({
+                    WindUI:Notify({
                         Title = "✅ WalkSpeed",
                         Content = "WalkSpeed set to " .. customWalkSpeed,
                         Duration = 2
@@ -658,7 +653,7 @@ MovementSection:Toggle({
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
                 if humanoid then
                     humanoid.WalkSpeed = 16
-                    Library:Notify({
+                    WindUI:Notify({
                         Title = "🔄 WalkSpeed",
                         Content = "WalkSpeed reset to 16",
                         Duration = 2
@@ -669,9 +664,9 @@ MovementSection:Toggle({
     end
 })
 
-MovementSection:Slider({
-    Name = "WalkSpeed Value",
-    Description = "Set custom walk speed value",
+UtilityTab:Slider({
+    Title = "WalkSpeed Value",
+    Desc = "Set custom walk speed value",
     Min = 16,
     Max = 350,
     Default = 16,
@@ -690,15 +685,17 @@ MovementSection:Slider({
     end
 })
 
-MovementSection:Toggle({
-    Name = "Noclip",
-    Description = "Walk through walls",
+UtilityTab:Divider()
+
+UtilityTab:Toggle({
+    Title = "Noclip",
+    Desc = "Walk through walls",
     Default = false,
     Callback = function(value)
         noclipEnabled = value
         
         if value then
-            Library:Notify({
+            WindUI:Notify({
                 Title = "✅ Noclip",
                 Content = "Noclip Enabled!",
                 Duration = 2
@@ -717,7 +714,7 @@ MovementSection:Toggle({
                 end
             end)
         else
-            Library:Notify({
+            WindUI:Notify({
                 Title = "🔄 Noclip",
                 Content = "Noclip Disabled!",
                 Duration = 2
@@ -740,42 +737,29 @@ MovementSection:Toggle({
     end
 })
 
--- Settings Tab
-local SettingsTab = Window:Tab({
-    Name = "Settings",
-    Icon = "rbxassetid://7734053495",
-    Color = Color3.fromRGB(150, 150, 200)
+UtilityTab:Divider()
+
+-- Info Section
+UtilityTab:Paragraph({
+    Title = "ℹ️ Information",
+    Desc = [[💫 NovaAxis Hub
+Version: 5.0
+Game: Steal A Femboy
+Created by: NovaAxis
+Library: WindUI]]
 })
 
--- UI Settings Section
-local UISection = SettingsTab:Section({
-    Name = "🎨 UI Settings"
-})
-
-UISection:Button({
-    Name = "📋 Copy GitHub",
-    Description = "Copy GitHub link to clipboard",
+UtilityTab:Button({
+    Title = "📋 Copy GitHub",
+    Desc = "Copy GitHub link to clipboard",
     Callback = function()
         setclipboard("github.com/NovaAxis")
-        Library:Notify({
+        WindUI:Notify({
             Title = "✅ Copied",
             Content = "GitHub link copied to clipboard!",
             Duration = 3
         })
     end
-})
-
--- Info Section
-local InfoSection = SettingsTab:Section({
-    Name = "ℹ️ Information"
-})
-
-InfoSection:Label({
-    Text = [[💫 NovaAxis Hub
-Version: 5.0
-Game: Steal A Femboy
-Created by: NovaAxis
-Library: WindUI]]
 })
 
 -- Keep WalkSpeed when character respawns
