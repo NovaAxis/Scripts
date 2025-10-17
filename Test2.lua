@@ -57,6 +57,7 @@ local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
     Author = "by NovaAxis",
     Folder = "NovaAxisHub",
+    Window.Icon:SetAnonymous(true) -- true or false
     
     HideSearchBar = true,
     
