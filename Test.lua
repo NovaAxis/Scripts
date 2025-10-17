@@ -44,12 +44,15 @@ local noclipConnection = nil
 -- Utility Functions (Bypass / Disconnects / Helpers)
 -----------------------------------------------------
 local function SetupKickProtection()
-    local mt = getrawmetatable(game)
-    if not mt then return end
+    local ok, mt = pcall(getrawmetatable)
+    if not ok or not mt then return end
+
+    local successSet, _ = pcall(function() setreadonly(mt, false) end)
 
     local oldNamecall = mt.__namecall
-    if setreadonly then
-        setreadonly(mt, false)
+    if typeof(oldNamecall) ~= "function" then
+        -- nothing we can do
+        return
     end
 
     mt.__namecall = newcclosure(function(self, ...)
@@ -59,6 +62,10 @@ local function SetupKickProtection()
         end
         return oldNamecall(self, ...)
     end)
+
+    if successSet and setreadonly then
+        pcall(function() setreadonly(mt, true) end)
+    end
 end
 
 local function DisconnectAllConnections(object, signalName)
@@ -66,12 +73,12 @@ local function DisconnectAllConnections(object, signalName)
     local signal = object[signalName]
     if not signal then return end
 
-    local connections = getconnections(signal)
-    if connections then
-        for _, conn in pairs(connections) do
-            if conn and type(conn.Disconnect) == "function" then
-                conn:Disconnect()
-            end
+    local ok, connections = pcall(function() return getconnections(signal) end)
+    if not ok or not connections then return end
+
+    for _, conn in pairs(connections) do
+        if conn and type(conn.Disconnect) == "function" then
+            pcall(function() conn:Disconnect() end)
         end
     end
 end
@@ -86,7 +93,7 @@ local function ExecuteBypass()
     local character = player.Character
 
     if character then
-        local humanoid = character:FindFirstChild("Humanoid")
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             DisconnectAllConnections(humanoid, "StateChanged")
             DisconnectAllConnections(humanoid, "Changed")
@@ -110,22 +117,27 @@ local function ExecuteBypass()
         DisconnectAllConnections(camera, "ChildAdded")
     end
 
-    local antiScript = script.Parent and script.Parent:FindFirstChild("Anti")
+    local antiScript = script and script.Parent and script.Parent:FindFirstChild("Anti")
     if antiScript then
-        antiScript.Disabled = true
-        antiScript:Destroy()
+        pcall(function()
+            antiScript.Disabled = true
+            antiScript:Destroy()
+        end)
     end
 
+    -- keep trying to remove re-added anti scripts / connections
     task.spawn(function()
         while task.wait(5) do
-            local newAnti = script.Parent and script.Parent:FindFirstChild("Anti")
+            local newAnti = script and script.Parent and script.Parent:FindFirstChild("Anti")
             if newAnti then
-                newAnti.Disabled = true
-                newAnti:Destroy()
+                pcall(function()
+                    newAnti.Disabled = true
+                    newAnti:Destroy()
+                end)
             end
 
-            if character and character.Parent then
-                local currentHumanoid = character:FindFirstChild("Humanoid")
+            if player and player.Character then
+                local currentHumanoid = player.Character:FindFirstChildOfClass("Humanoid")
                 if currentHumanoid then
                     DisconnectAllConnections(currentHumanoid, "StateChanged")
                 end
@@ -135,30 +147,34 @@ local function ExecuteBypass()
 end
 
 local function SafeExecute()
-    local success, err = pcall(ExecuteBypass)
-    if not success then
-        -- fallback: try to set a basic namecall override
-        local mt = getrawmetatable(game)
-        if mt then
-            local old = mt.__namecall
-            if setreadonly then setreadonly(mt, false) end
-            mt.__namecall = function(self, ...)
-                if getnamecallmethod() == "Kick" then return nil end
-                return old(self, ...)
+    local ok, err = pcall(ExecuteBypass)
+    if not ok then
+        -- best-effort fallback
+        pcall(function()
+            local mt_ok, mt = pcall(getrawmetatable)
+            if mt_ok and mt and setreadonly then
+                setreadonly(mt, false)
+                local old = mt.__namecall
+                mt.__namecall = function(self, ...)
+                    if getnamecallmethod() == "Kick" then return nil end
+                    return old(self, ...)
+                end
+                setreadonly(mt, true)
             end
-        end
+        end)
+
         pcall(function()
             WindUI:Notify({
                 Title = "⚠️ Warning",
-                Content = "Bypass partial failure, kick protection enabled",
+                Content = "Bypass partial failure, fallback applied.",
                 Duration = 3
             })
         end)
     else
         pcall(function()
             WindUI:Notify({
-                Title = "🛡️ Success",
-                Content = "Anti-Cheat bypassed successfully!",
+                Title = "🛡️ Anti-Cheat",
+                Content = "Bypass enabled successfully.",
                 Duration = 2
             })
         end)
@@ -207,7 +223,7 @@ local function findTargetFemboy(playerBase)
                 for _, slot in ipairs(slots:GetChildren()) do
                     for _, model in ipairs(slot:GetChildren()) do
                         if model:IsA("Model") then
-                            local modelName = model.Name
+                            local modelName = model.Name or ""
                             if modelName:lower():find("femboy") or TARGET_NAMES[modelName] then
                                 return model, base
                             end
@@ -268,7 +284,7 @@ local function activateProximityPromptWithTimeout(prompt, timeout)
 
     task.spawn(function()
         local result, err = pcall(function()
-            if prompt:IsA("ProximityPrompt") then
+            if prompt and prompt:IsA("ProximityPrompt") then
                 prompt:InputHoldBegin()
                 local holdDuration = prompt.HoldDuration or 0.5
                 task.wait(holdDuration)
@@ -276,7 +292,7 @@ local function activateProximityPromptWithTimeout(prompt, timeout)
 
                 local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
                 if remoteEvent then
-                    remoteEvent:FireServer()
+                    pcall(function() remoteEvent:FireServer() end)
                 end
                 success = true
             else
@@ -303,11 +319,13 @@ end
 
 local function executeInstantSteal()
     if isRunning then
-        WindUI:Notify({
-            Title = "⚠️ Warning",
-            Content = "Already running!",
-            Duration = 2
-        })
+        pcall(function()
+            WindUI:Notify({
+                Title = "⚠️ Warning",
+                Content = "Already running!",
+                Duration = 2
+            })
+        end)
         return
     end
 
@@ -399,7 +417,6 @@ local function executeInstantSteal()
 
     local prompt = findProximityPromptInModel(targetBase or targetModel, targetPosition, 25)
 
-    local promptActivated = false
     if prompt then
         WindUI:Notify({
             Title = "⏳ Info",
@@ -410,7 +427,6 @@ local function executeInstantSteal()
         local success, errorMessage = activateProximityPromptWithTimeout(prompt, promptTimeout)
 
         if success then
-            promptActivated = true
             WindUI:Notify({
                 Title = "✅ Success",
                 Content = "Prompt activated!",
@@ -496,14 +512,26 @@ WindUI:Notify({
 })
 
 -----------------------------------------------------
--- Main Tab
+-- Tabs
 -----------------------------------------------------
 local Main = Window:Tab({
     Title = "Main Features",
     Icon = "target"
 })
 
--- Instant Steal Section
+local Utility = Window:Tab({
+    Title = "Utility",
+    Icon = "shield"
+})
+
+local Info = Window:Tab({
+    Title = "Information",
+    Icon = "info"
+})
+
+-----------------------------------------------------
+-- Main Tab
+-----------------------------------------------------
 Main:Section({
     Title = "⚡ Instant Steal"
 })
@@ -624,14 +652,8 @@ Main:Paragraph({
 })
 
 -----------------------------------------------------
--- Utility Tab (bypass button removed; manual re-exec kept)
+-- Utility Tab
 -----------------------------------------------------
-local Utility = Window:Tab({
-    Title = "Utility",
-    Icon = "shield"
-})
-
--- Movement Section
 Utility:Section({
     Title = "🏃 Movement"
 })
@@ -708,13 +730,18 @@ Utility:Toggle({
                 Duration = 2
             })
 
+            if noclipConnection then
+                noclipConnection:Disconnect()
+                noclipConnection = nil
+            end
+
             noclipConnection = RunService.Stepped:Connect(function()
                 if noclipEnabled then
                     local character = player.Character
                     if character then
                         for _, part in pairs(character:GetDescendants()) do
                             if part:IsA("BasePart") then
-                                part.CanCollide = false
+                                pcall(function() part.CanCollide = false end)
                             end
                         end
                     end
@@ -736,7 +763,7 @@ Utility:Toggle({
             if character then
                 for _, part in pairs(character:GetDescendants()) do
                     if part:IsA("BasePart") then
-                        part.CanCollide = true
+                        pcall(function() part.CanCollide = true end)
                     end
                 end
             end
@@ -744,7 +771,6 @@ Utility:Toggle({
     end
 })
 
--- Info Section removed from Utility (moved to separate tab)
 Utility:Section({
     Title = "ℹ️ Misc"
 })
@@ -777,13 +803,8 @@ player.CharacterAdded:Connect(function(character)
 end)
 
 -----------------------------------------------------
--- Information Tab (separate)
+-- Information Tab
 -----------------------------------------------------
-local Info = Window:Tab({
-    Title = "Information",
-    Icon = "info"
-})
-
 Info:Section({
     Title = "📜 About"
 })
@@ -801,7 +822,7 @@ Info:Button({
     Title = "🌐 Discord Server",
     Desc = "Join our community (discord.gg/Eg98P4wf2V)",
     Callback = function()
-        setclipboard("https://discord.gg/Eg98P4wf2V")
+        pcall(function() setclipboard("https://discord.gg/Eg98P4wf2V") end)
         WindUI:Notify({
             Title = "✅ Copied!",
             Content = "Discord invite link copied to clipboard.",
@@ -815,3 +836,4 @@ print("✅ NovaAxis Hub loaded successfully!")
 print("⌨️ Press Left Alt to toggle UI")
 print("🌸 Game: Steal A Femboy")
 print("🛡️ Bypass activated on startup.")
+print("🌐 Discord: discord.gg/Eg98P4wf2V")
