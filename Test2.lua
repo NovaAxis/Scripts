@@ -1,11 +1,22 @@
 --[[
     💫 NovaAxis Hub - 99 Nights In The Forest
-    
     Author: NovaAxis
     Version: 2.5
 ]]
 
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/footagesus/WindUI/main/source.lua"))()
+local WindUI
+
+do
+    local ok, result = pcall(function()
+        return require("./src/init")
+    end)
+    
+    if ok then
+        WindUI = result
+    else 
+        WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+    end
+end
 
 -- Services
 local Players = game:GetService("Players")
@@ -20,13 +31,31 @@ local claimAmount = 100
 -- Create Window
 local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
-    Key = Enum.KeyCode.LeftAlt,
-    Position = UDim2.new(0.5, 0, 0.5, 0),
-    Size = UDim2.new(0, 500, 0, 400)
+    Author = "by NovaAxis",
+    Folder = "NovaAxisHub",
+    
+    HideSearchBar = true,
+    
+    OpenButton = {
+        Title = "Open NovaAxis Hub",
+        CornerRadius = UDim.new(0, 8),
+        StrokeThickness = 2,
+        Enabled = true,
+        Draggable = true,
+        OnlyMobile = false,
+        
+        Color = ColorSequence.new(
+            Color3.fromHex("#30FF6A"), 
+            Color3.fromHex("#e7ff2f")
+        )
+    }
 })
 
--- Create Tabs
-local MainTab = Window:CreateTab("💰 Money Farm")
+-- Create Main Tab
+local MainTab = Window:Tab({
+    Title = "💰 Money Farm",
+    Icon = "dollar-sign",
+})
 
 -- Claim Money Function
 local function executeClaim(amount)
@@ -62,38 +91,71 @@ local function executeClaim(amount)
     end
 end
 
--- Main Tab Sections
-local ClaimSection = MainTab:CreateSection("💵 Claim Money")
-local InfoSection = MainTab:CreateSection("ℹ️ Information")
+-- Claim Money Section
+local ClaimSection = MainTab:Section({
+    Title = "💵 Claim Money",
+})
 
--- Claim Amount Slider
-ClaimSection:AddSlider({
-    Text = "Claim Amount",
-    Default = 100,
-    Minimum = 100,
-    Maximum = 100000,
+ClaimSection:Slider({
+    Title = "Claim Amount",
+    Step = 100,
+    Value = {
+        Min = 100,
+        Max = 100000,
+        Default = 100,
+    },
     Callback = function(value)
         claimAmount = value
     end
 })
 
--- Main Claim Button
-ClaimSection:AddButton({
-    Text = "💰 Claim Money",
+ClaimSection:Space()
+
+ClaimSection:Button({
+    Title = "💰 Claim Money",
+    Icon = "dollar-sign",
     Callback = function()
         executeClaim(claimAmount)
     end
 })
 
-ClaimSection:AddLabel("ℹ️ Info")
-ClaimSection:AddLabel("Use the slider to set the amount, then click the button to claim money.")
+ClaimSection:Space()
 
--- Info Section
-InfoSection:AddLabel("💫 NovaAxis Hub")
-InfoSection:AddLabel("Version: 2.5\nGame: 99 Nights In The Forest\nCreated by: NovaAxis")
+ClaimSection:Section({
+    Title = "ℹ️ Info",
+    TextSize = 16,
+    TextTransparency = .35,
+    FontWeight = Enum.FontWeight.Medium,
+})
 
-InfoSection:AddButton({
-    Text = "📋 Discord Server",
+ClaimSection:Section({
+    Title = "Use the slider to set the amount, then click the button to claim money.",
+    TextSize = 14,
+    TextTransparency = .5,
+})
+
+-- Information Section
+local InfoSection = MainTab:Section({
+    Title = "ℹ️ Information",
+})
+
+InfoSection:Section({
+    Title = "💫 NovaAxis Hub",
+    TextSize = 18,
+    FontWeight = Enum.FontWeight.SemiBold,
+})
+
+InfoSection:Section({
+    Title = "Version: 2.5\nGame: 99 Nights In The Forest\nCreated by: NovaAxis",
+    TextSize = 14,
+    TextTransparency = .35,
+})
+
+InfoSection:Space()
+
+InfoSection:Button({
+    Title = "📋 Discord Server",
+    Icon = "users",
     Callback = function()
         setclipboard("discord.gg/Eg98P4wf2V")
         WindUI:Notify({
@@ -104,8 +166,13 @@ InfoSection:AddButton({
     end
 })
 
-InfoSection:AddLabel("⌨️ Controls")
-InfoSection:AddLabel("Use slider to set amount and claim money")
+InfoSection:Space()
+
+InfoSection:Section({
+    Title = "Use slider to set amount and claim money",
+    TextSize = 14,
+    TextTransparency = .5,
+})
 
 -- Welcome Notification
 task.wait(1)
@@ -118,6 +185,3 @@ WindUI:Notify({
 -- Initialization
 print("✅ NovaAxis Hub loaded successfully!")
 print("💰 Game: 99 Nights In The Forest")
-
--- Initialize Window
-Window:Init()
