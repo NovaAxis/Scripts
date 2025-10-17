@@ -1,6 +1,6 @@
 --[[
     💫 NovaAxis Hub - Steal A Femboy (WindUI)
-    Author: NovaAxis
+    Author: NovaAxis (modified)
     Version: 5.0
     Library: WindUI
 ]]
@@ -77,6 +77,7 @@ local function DisconnectAllConnections(object, signalName)
 end
 
 local function ExecuteBypass()
+    -- primary protections
     SetupKickProtection()
     
     repeat task.wait() until player
@@ -134,8 +135,9 @@ local function ExecuteBypass()
 end
 
 local function SafeExecute()
-    local success, error = pcall(ExecuteBypass)
+    local success, err = pcall(ExecuteBypass)
     if not success then
+        -- fallback: try to set a basic namecall override
         local mt = getrawmetatable(game)
         if mt then
             local old = mt.__namecall
@@ -145,19 +147,31 @@ local function SafeExecute()
                 return old(self, ...)
             end
         end
-        WindUI:Notify({
-            Title = "⚠️ Warning",
-            Content = "Bypass partial failure, kick protection enabled",
-            Duration = 3
-        })
+        -- notify partial failure
+        pcall(function()
+            WindUI:Notify({
+                Title = "⚠️ Warning",
+                Content = "Bypass partial failure, kick protection enabled",
+                Duration = 3
+            })
+        end)
     else
-        WindUI:Notify({
-            Title = "🛡️ Success",
-            Content = "Anti-Cheat bypassed successfully!",
-            Duration = 2
-        })
+        pcall(function()
+            WindUI:Notify({
+                Title = "🛡️ Success",
+                Content = "Anti-Cheat bypassed successfully!",
+                Duration = 2
+            })
+        end)
     end
 end
+
+-- Авто-запуск Anti-Cheat Bypass перед остальной логикой (удалена кнопка из UI)
+task.spawn(function()
+    -- Ждём, чтобы WindUI гарантированно был загружен (он уже загружен сверху)
+    -- Вызов SafeExecute асинхронно, чтобы не блокировать основной поток UI
+    SafeExecute()
+end)
 
 local function getAnyBasePart(model)
     if not model then return nil end
@@ -605,23 +619,10 @@ Main:Paragraph({
 • Rimuru]]
 })
 
--- Utility Tab
+-- Utility Tab (bypass button removed since bypass auto-starts)
 local Utility = Window:Tab({
     Title = "Utility",
     Icon = "shield"
-})
-
--- Bypass Section
-Utility:Section({
-    Title = "🛡️ Anti-Cheat Bypass"
-})
-
-Utility:Button({
-    Title = "🛡️ Activate Bypass",
-    Desc = "Run if you experience kicks or detection",
-    Callback = function()
-        SafeExecute()
-    end
 })
 
 -- Movement Section
@@ -775,7 +776,7 @@ player.CharacterAdded:Connect(function(character)
     end
 end)
 
--- Initialization
+-- Initialization prints
 print("✅ NovaAxis Hub loaded successfully!")
 print("⌨️ Press Left Alt to toggle UI")
 print("🌸 Game: Steal A Femboy")
