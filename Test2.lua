@@ -2,6 +2,7 @@
     💫 NovaAxis Hub - 99 Nights In The Forest
     Author: NovaAxis
     Version: 2.5
+    1
 ]]
 
 local WindUI
@@ -26,7 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 
 -- Variables
-local claimAmount = 100
+local claimAmount = "100"
 
 -- Function to parse number with k/m/b suffixes
 local function parseNumber(input)
@@ -86,8 +87,11 @@ local InfoTab = Window:Tab({
 })
 
 -- Claim Money Function
-local function executeClaim(amount)
-    local parsedAmount = parseNumber(amount)
+local function executeClaim(amountText)
+    local parsedAmount = parseNumber(amountText)
+    
+    print("Input:", amountText)
+    print("Parsed amount:", parsedAmount)
     
     if not parsedAmount or parsedAmount <= 0 then
         WindUI:Notify({
@@ -101,8 +105,9 @@ local function executeClaim(amount)
     local success, result = pcall(function()
         local args = {
             "Money",
-            parsedAmount
+            parsedAmount  -- Здесь уже число 1000, а не "1k"
         }
+        print("Sending to server:", parsedAmount)
         game:GetService("ReplicatedStorage"):WaitForChild("ClaimReward"):FireServer(unpack(args))
     end)
     
@@ -115,7 +120,7 @@ local function executeClaim(amount)
     else
         WindUI:Notify({
             Title = "❌ Error",
-            Content = "Failed to claim money",
+            Content = "Failed to claim money: " .. tostring(result),
             Duration = 3
         })
     end
@@ -257,13 +262,6 @@ InfoSection:Section({
     TextSize = 14,
     TextTransparency = .5,
 })
-
--- Auto-open tabs (expand all tabs by default)
-task.spawn(function()
-    task.wait(0.5)
-    -- WindUI automatically expands the first tab by default
-    -- All tabs are visible and can be clicked
-end)
 
 -- Welcome Notification
 task.wait(1)
