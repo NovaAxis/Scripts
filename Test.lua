@@ -1,9 +1,8 @@
 --[[
-    💫 NovaAxis Hub - Steal A Femboy (WindUI)
-    Author: NovaAxis (modified)
-    Version: 5.0
+    💫 NovaAxis Hub - Steal A Femboy (Neptune Edition)
+    Author: By NovaAxis (modified)
+    Version: 5.1
     Library: WindUI
-    okak
 ]]
 
 -- Load WindUI Library
@@ -13,8 +12,7 @@ local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footag
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-
--- Player
+local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 
 -- Target Names
@@ -24,7 +22,7 @@ local TARGET_NAMES = {
     ["Chihiro Fujisaki"] = true,
     ["Venti"] = true,
     ["Gasper"] = true,
-    ["Saika"] = true,   
+    ["Saika"] = true,
     ["J*b Application"] = true,
     ["Mythical Lucky Block"] = true,
     ["Nagisa Shiota"] = true,
@@ -42,17 +40,18 @@ local customWalkSpeed = 16
 local noclipEnabled = false
 local noclipConnection = nil
 
--- Utility Functions
+-----------------------------------------------------
+-- Utility Functions (Bypass / Disconnects / Helpers)
+-----------------------------------------------------
 local function SetupKickProtection()
     local mt = getrawmetatable(game)
     if not mt then return end
-    
+
     local oldNamecall = mt.__namecall
-    
     if setreadonly then
         setreadonly(mt, false)
     end
-    
+
     mt.__namecall = newcclosure(function(self, ...)
         local method = getnamecallmethod()
         if method == "Kick" then
@@ -66,7 +65,7 @@ local function DisconnectAllConnections(object, signalName)
     if not object then return end
     local signal = object[signalName]
     if not signal then return end
-    
+
     local connections = getconnections(signal)
     if connections then
         for _, conn in pairs(connections) do
@@ -80,43 +79,43 @@ end
 local function ExecuteBypass()
     -- primary protections
     SetupKickProtection()
-    
+
     repeat task.wait() until player
     repeat task.wait() until player.Character
-    
+
     local character = player.Character
-    
+
     if character then
         local humanoid = character:FindFirstChild("Humanoid")
         if humanoid then
             DisconnectAllConnections(humanoid, "StateChanged")
             DisconnectAllConnections(humanoid, "Changed")
         end
-        
+
         local rootPart = character:FindFirstChild("HumanoidRootPart")
         if rootPart then
             DisconnectAllConnections(rootPart, "ChildAdded")
         end
-        
+
         DisconnectAllConnections(character, "ChildRemoved")
     end
-    
+
     local backpack = player:FindFirstChild("Backpack")
     if backpack then
         DisconnectAllConnections(backpack, "ChildAdded")
     end
-    
+
     local camera = workspace.CurrentCamera
     if camera then
         DisconnectAllConnections(camera, "ChildAdded")
     end
-    
+
     local antiScript = script.Parent and script.Parent:FindFirstChild("Anti")
     if antiScript then
         antiScript.Disabled = true
         antiScript:Destroy()
     end
-    
+
     task.spawn(function()
         while task.wait(5) do
             local newAnti = script.Parent and script.Parent:FindFirstChild("Anti")
@@ -124,7 +123,7 @@ local function ExecuteBypass()
                 newAnti.Disabled = true
                 newAnti:Destroy()
             end
-            
+
             if character and character.Parent then
                 local currentHumanoid = character:FindFirstChild("Humanoid")
                 if currentHumanoid then
@@ -148,7 +147,6 @@ local function SafeExecute()
                 return old(self, ...)
             end
         end
-        -- notify partial failure
         pcall(function()
             WindUI:Notify({
                 Title = "⚠️ Warning",
@@ -167,21 +165,14 @@ local function SafeExecute()
     end
 end
 
--- Авто-запуск Anti-Cheat Bypass перед остальной логикой (удалена кнопка из UI)
-task.spawn(function()
-    -- Ждём, чтобы WindUI гарантированно был загружен (он уже загружен сверху)
-    -- Вызов SafeExecute асинхронно, чтобы не блокировать основной поток UI
-    SafeExecute()
-end)
-
 local function getAnyBasePart(model)
     if not model then return nil end
-    if model.PrimaryPart and model.PrimaryPart:IsA("BasePart") then 
-        return model.PrimaryPart 
+    if model.PrimaryPart and model.PrimaryPart:IsA("BasePart") then
+        return model.PrimaryPart
     end
     for _, descendant in ipairs(model:GetDescendants()) do
-        if descendant:IsA("BasePart") then 
-            return descendant 
+        if descendant:IsA("BasePart") then
+            return descendant
         end
     end
     return nil
@@ -236,16 +227,16 @@ local function teleportCharacterToPosition(position)
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return false end
 
-    pcall(function() 
-        humanoidRootPart.Velocity = Vector3.zero 
+    pcall(function()
+        humanoidRootPart.Velocity = Vector3.zero
         humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
     end)
 
     humanoidRootPart.CFrame = CFrame.new(position)
     RunService.Heartbeat:Wait()
 
-    pcall(function() 
-        humanoidRootPart.Velocity = Vector3.zero 
+    pcall(function()
+        humanoidRootPart.Velocity = Vector3.zero
         humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
     end)
 
@@ -274,15 +265,15 @@ end
 local function activateProximityPromptWithTimeout(prompt, timeout)
     local success = false
     local errorMessage = nil
-    
-    local thread = task.spawn(function()
+
+    task.spawn(function()
         local result, err = pcall(function()
             if prompt:IsA("ProximityPrompt") then
                 prompt:InputHoldBegin()
                 local holdDuration = prompt.HoldDuration or 0.5
                 task.wait(holdDuration)
                 prompt:InputHoldEnd()
-                
+
                 local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
                 if remoteEvent then
                     remoteEvent:FireServer()
@@ -292,21 +283,21 @@ local function activateProximityPromptWithTimeout(prompt, timeout)
                 error("Object is not a ProximityPrompt")
             end
         end)
-        
+
         if not result then
             errorMessage = err
         end
     end)
-    
+
     local startTime = tick()
     while not success and (tick() - startTime) < timeout do
         task.wait(0.1)
     end
-    
+
     if not success then
         return false, "Timeout: Prompt not activated in " .. timeout .. " seconds"
     end
-    
+
     return success, errorMessage
 end
 
@@ -415,9 +406,9 @@ local function executeInstantSteal()
             Content = "Activating prompt... (" .. promptTimeout .. "s timeout)",
             Duration = 2
         })
-        
+
         local success, errorMessage = activateProximityPromptWithTimeout(prompt, promptTimeout)
-        
+
         if success then
             promptActivated = true
             WindUI:Notify({
@@ -444,7 +435,7 @@ local function executeInstantSteal()
     local spawn = playerBase:FindFirstChild("Spawn")
     if spawn then
         local spawnPosition
-        
+
         if spawn:IsA("BasePart") then
             spawnPosition = spawn.Position
         else
@@ -475,14 +466,24 @@ local function executeInstantSteal()
     isRunning = false
 end
 
+-----------------------------------------------------
+-- Auto-run Anti-Cheat Bypass BEFORE UI
+-----------------------------------------------------
+task.spawn(function()
+    SafeExecute()
+end)
+
+-----------------------------------------------------
 -- Creating Window
+-----------------------------------------------------
 local Window = WindUI:CreateWindow({
-    Title = "💫 NovaAxis Hub",
-    Author = ".ftgs",
+    Title = "By NovaAxis",
+    Author = "By NovaAxis",
     Size = UDim2.fromOffset(600, 480),
     KeyBind = Enum.KeyCode.LeftAlt,
     Transparent = false,
-    Theme = "Dark",
+    Theme = "Custom",
+    Accent = Color3.fromRGB(120, 80, 255),
     Folder = "NovaAxis-FemboySteal",
     ConfigFile = "NovaAxis-Config"
 })
@@ -494,7 +495,9 @@ WindUI:Notify({
     Duration = 5
 })
 
+-----------------------------------------------------
 -- Main Tab
+-----------------------------------------------------
 local Main = Window:Tab({
     Title = "Main Features",
     Icon = "target"
@@ -548,7 +551,7 @@ Main:Toggle({
                 Content = "Auto Steal Enabled!",
                 Duration = 2
             })
-            
+
             task.spawn(function()
                 while autoStealEnabled do
                     if not isRunning then
@@ -620,7 +623,9 @@ Main:Paragraph({
 • Rimuru]]
 })
 
--- Utility Tab (bypass button removed since bypass auto-starts)
+-----------------------------------------------------
+-- Utility Tab (bypass button removed; manual re-exec kept)
+-----------------------------------------------------
 local Utility = Window:Tab({
     Title = "Utility",
     Icon = "shield"
@@ -637,7 +642,7 @@ Utility:Toggle({
     Default = false,
     Callback = function(value)
         walkSpeedEnabled = value
-        
+
         if value then
             local character = player.Character
             if character then
@@ -676,7 +681,7 @@ Utility:Slider({
     Default = 16,
     Callback = function(value)
         customWalkSpeed = value
-        
+
         if walkSpeedEnabled then
             local character = player.Character
             if character then
@@ -695,14 +700,14 @@ Utility:Toggle({
     Default = false,
     Callback = function(value)
         noclipEnabled = value
-        
+
         if value then
             WindUI:Notify({
                 Title = "✅ Noclip",
                 Content = "Noclip Enabled!",
                 Duration = 2
             })
-            
+
             noclipConnection = RunService.Stepped:Connect(function()
                 if noclipEnabled then
                     local character = player.Character
@@ -721,12 +726,12 @@ Utility:Toggle({
                 Content = "Noclip Disabled!",
                 Duration = 2
             })
-            
+
             if noclipConnection then
                 noclipConnection:Disconnect()
                 noclipConnection = nil
             end
-            
+
             local character = player.Character
             if character then
                 for _, part in pairs(character:GetDescendants()) do
@@ -739,30 +744,24 @@ Utility:Toggle({
     end
 })
 
--- Info Section
+-- Info Section removed from Utility (moved to separate tab)
 Utility:Section({
-    Title = "ℹ️ Information"
-})
-
-Utility:Paragraph({
-    Title = "About",
-    Desc = [[💫 NovaAxis Hub
-Version: 5.0
-Game: Steal A Femboy
-Created by: NovaAxis
-Library: WindUI]]
+    Title = "ℹ️ Misc"
 })
 
 Utility:Button({
-    Title = "📋 Copy GitHub",
-    Desc = "Copy GitHub link to clipboard",
+    Title = "💾 Re-Execute Bypass",
+    Desc = "Force reload Anti-Cheat Bypass manually",
     Callback = function()
-        setclipboard("github.com/NovaAxis")
-        WindUI:Notify({
-            Title = "✅ Copied",
-            Content = "GitHub link copied to clipboard!",
-            Duration = 3
-        })
+        SafeExecute()
+    end
+})
+
+Utility:Button({
+    Title = "❌ Close Menu",
+    Desc = "Hide the window",
+    Callback = function()
+        WindUI:Destroy()
     end
 })
 
@@ -777,7 +776,42 @@ player.CharacterAdded:Connect(function(character)
     end
 end)
 
+-----------------------------------------------------
+-- Information Tab (separate)
+-----------------------------------------------------
+local Info = Window:Tab({
+    Title = "Information",
+    Icon = "info"
+})
+
+Info:Section({
+    Title = "📜 About"
+})
+
+Info:Paragraph({
+    Title = "💫 NovaAxis Hub",
+    Desc = [[Version: 5.1
+Game: Steal A Femboy
+Modified for Neptune Executor
+Author: By NovaAxis
+Library: WindUI]]
+})
+
+Info:Button({
+    Title = "🌐 Discord Server",
+    Desc = "Join our community (discord.gg/Eg98P4wf2V)",
+    Callback = function()
+        setclipboard("https://discord.gg/Eg98P4wf2V")
+        WindUI:Notify({
+            Title = "✅ Copied!",
+            Content = "Discord invite link copied to clipboard.",
+            Duration = 3
+        })
+    end
+})
+
 -- Initialization prints
 print("✅ NovaAxis Hub loaded successfully!")
 print("⌨️ Press Left Alt to toggle UI")
 print("🌸 Game: Steal A Femboy")
+print("🛡️ Bypass activated on startup.")
