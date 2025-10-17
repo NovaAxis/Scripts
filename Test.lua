@@ -1,16 +1,21 @@
 --[[
-    💫 NovaAxis Hub - 99 Nights In The Forest (WindUI rewrite, no Compkiller)
-    Author: NovaAxis (ported to WindUI, Compkiller-free)
-    Version: 2.5-windui
-    Notes: This file intentionally does NOT import or reuse Compkiller code.
-           WindUI is loaded separately (expected to be available via the provided URL).
-           All core game logic from the original (ClaimReward usage) is preserved.
-]]
+    💫 NovaAxis Hub - 99 Nights In The Forest (WindUI v2 rewrite)
+    Author: NovaAxis (ported to WindUI v2)
+    Version: 3.0-full
+    Notes:
+      - Полная версия, совместимая с WindUI v2 API (Window:Tab, Tab:Section, Section:Button/Slider/Toggle/etc).
+      - Тема: Nova Neon (RGB 120,80,255).
+      - Секции открыты сразу (Opened = true) — как в старом проекте.
+      - Вкладки: Main (Claim/AutoClaim/QuickClaim), UI Settings, Config, Information.
+      - Убираем Utility (по твоему требованию).
+      - Скрипт автономен, загружает WindUI автоматически.
+--]]
 
 -- ============================
--- Load WindUI
+-- Load WindUI (v2-compatible)
 -- ============================
 local successWind, WindUI = pcall(function()
+    -- URL used previously; if your executor blocks github, replace with your local host/loadstring.
     return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 end)
 
@@ -22,16 +27,17 @@ end
 -- ============================
 -- Services
 -- ============================
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 
 -- ============================
--- Constants / Defaults
+-- Constants & Defaults
 -- ============================
 local DEFAULT_CLAIM_AMOUNT = 100
 local MIN_CLAIM_AMOUNT = 100
@@ -42,34 +48,33 @@ local MAX_CLAIM_AMOUNT = 100000
 -- ============================
 local claimAmount = DEFAULT_CLAIM_AMOUNT
 local autoClaim = false
-local autoClaimActive = false
 local autoClaimDelay = 5
+local autoClaimActive = false
 
--- UI theme (Nova Neon)
+-- Keep-in-memory config store
+local ConfigStore = {}
+
+-- ============================
+-- Theme: Nova Neon (120,80,255)
+-- ============================
 WindUI:AddTheme({
     Name = "Nova Neon",
     Accent = Color3.fromRGB(120, 80, 255),
-    Dialog = Color3.fromRGB(18,18,20),
-    Outline = Color3.fromRGB(255,255,255),
-    Text = Color3.fromRGB(230,230,230),
-    Placeholder = Color3.fromRGB(130,130,140),
-    Background = Color3.fromRGB(8,8,10),
-    Button = Color3.fromRGB(50,40,60),
-    Icon = Color3.fromRGB(190,180,255)
+    Dialog = Color3.fromRGB(18, 18, 20),
+    Outline = Color3.fromRGB(255, 255, 255),
+    Text = Color3.fromRGB(230, 230, 230),
+    Placeholder = Color3.fromRGB(130, 130, 140),
+    Background = Color3.fromRGB(8, 8, 10),
+    Button = Color3.fromRGB(50, 40, 60),
+    Icon = Color3.fromRGB(190, 180, 255)
 })
 WindUI:SetTheme("Nova Neon")
 
 -- ============================
--- Local helpers
+-- Helpers: Notifications & Debug
 -- ============================
-local function safe_pcall(fn, ...)
-    local ok, res = pcall(fn, ...)
-    return ok, res
-end
-
--- Simple Notifier wrapper using WindUI
-local function NotifierNew(opts)
-    -- opts: {Title, Content, Duration, Icon}
+local function Notify(opts)
+    -- {Title, Content, Duration, Icon}
     WindUI:Notify({
         Title = opts.Title or "Notification",
         Content = opts.Content or "",
@@ -78,80 +83,149 @@ local function NotifierNew(opts)
     })
 end
 
--- Simple ConfigManager placeholder (no file IO, just metadata)
+local function Debug(msg)
+    msg = tostring(msg)
+    print("[NovaAxis DEBUG] "..msg)
+end
+
+-- ============================
+-- Config Manager (in-memory; placeholders for file IO)
+-- ============================
 local ConfigManager = {}
 ConfigManager.Directory = "NovaAxis-99Nights"
 ConfigManager.Config = "Default-Config"
-ConfigManager.current = {}
+
 function ConfigManager:Save(name)
-    -- Placeholder: store current settings in memory; in future can write to file
     local n = name or self.Config
-    self.current[n] = {
+    ConfigStore[n] = {
         claimAmount = claimAmount,
         autoClaim = autoClaim,
         autoClaimDelay = autoClaimDelay
     }
-    NotifierNew({Title = "Config", Content = "Settings saved to memory (placeholder) ["..n.."]", Duration = 2, Icon = "save"})
+    Notify({Title = "Config", Content = "Settings saved to memory ("..n..")", Duration = 2, Icon = "save"})
+    return true
 end
+
 function ConfigManager:Load(name)
     local n = name or self.Config
-    local cfg = self.current[n]
-    if cfg then
-        claimAmount = cfg.claimAmount or claimAmount
-        autoClaim = cfg.autoClaim or autoClaim
-        autoClaimDelay = cfg.autoClaimDelay or autoClaimDelay
-        NotifierNew({Title = "Config", Content = "Settings loaded from memory (placeholder) ["..n.."]", Duration = 2, Icon = "download"})
-        return true
-    else
-        NotifierNew({Title = "Config", Content = "No saved config found for ["..n.."]", Duration = 2, Icon = "alert-circle"})
+    local cfg = ConfigStore[n]
+    if not cfg then
+        Notify({Title = "Config", Content = "No saved config found ("..n..")", Duration = 2, Icon = "alert-circle"})
         return false
     end
+    claimAmount = cfg.claimAmount or claimAmount
+    autoClaim = cfg.autoClaim or autoClaim
+    autoClaimDelay = cfg.autoClaimDelay or autoClaimDelay
+    Notify({Title = "Config", Content = "Config loaded ("..n..")", Duration = 2, Icon = "download"})
+    return true
+end
+
+-- Optionally implement writefile/readfile depending on executor
+local function fileAvailable()
+    return type(writefile) == "function" and type(readfile) == "function"
+end
+
+function ConfigManager:SaveToDisk(name)
+    if not fileAvailable() then
+        Notify({Title="Config", Content="Filesystem unavailable (writefile/readfile). Using memory only.", Duration=3})
+        return false
+    end
+    local n = name or self.Config
+    local payload = HttpService:JSONEncode({
+        claimAmount = claimAmount,
+        autoClaim = autoClaim,
+        autoClaimDelay = autoClaimDelay
+    })
+    pcall(function() writefile(self.Directory.."/"..n..".json", payload) end)
+    Notify({Title="Config", Content="Saved to disk: "..n, Duration=3})
+    return true
+end
+
+function ConfigManager:LoadFromDisk(name)
+    if not fileAvailable() then
+        Notify({Title="Config", Content="Filesystem unavailable (writefile/readfile).", Duration=3})
+        return false
+    end
+    local n = name or self.Config
+    local path = self.Directory.."/"..n..".json"
+    if not pcall(function() return readfile(path) end) then
+        Notify({Title="Config", Content="Config file not found: "..n, Duration=3})
+        return false
+    end
+    local content = readfile(path)
+    local ok, data = pcall(function() return HttpService:JSONDecode(content) end)
+    if not ok then
+        Notify({Title="Config", Content="Failed to parse config file: "..n, Duration=3})
+        return false
+    end
+    claimAmount = data.claimAmount or claimAmount
+    autoClaim = data.autoClaim or autoClaim
+    autoClaimDelay = data.autoClaimDelay or autoClaimDelay
+    Notify({Title="Config", Content="Loaded from disk: "..n, Duration=3})
+    return true
 end
 
 -- ============================
--- Core game function: claim money
+-- Core: Claim function
 -- ============================
 local function executeClaim(amount)
-    if not amount or type(amount) ~= "number" or amount <= 0 then
-        NotifierNew({Title = "❌ Error", Content = "Invalid amount entered!", Duration = 3, Icon = "x"})
+    if type(amount) ~= "number" or amount <= 0 then
+        Notify({Title="❌ Error", Content="Invalid claim amount", Duration=3, Icon="x"})
         return false
     end
 
-    -- Try to call the ClaimReward remote (replicating original script behavior)
-    local ok, err = pcall(function()
-        -- If the event exists, fire it
-        local claimEvent = ReplicatedStorage:FindFirstChild("ClaimReward")
-        if not claimEvent then
-            error("ClaimReward remote not found in ReplicatedStorage")
+    -- Attempt to find ClaimReward Remote
+    local claimRemote = ReplicatedStorage:FindFirstChild("ClaimReward")
+    if not claimRemote then
+        -- some games put remotes under other folders; try a safer search
+        for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+            if v.Name == "ClaimReward" and v:IsA("RemoteEvent") then
+                claimRemote = v
+                break
+            end
         end
-        -- Many games expect arguments in a specific order — original passed ("Money", amount)
-        claimEvent:FireServer("Money", amount)
+    end
+
+    if not claimRemote then
+        Notify({Title="❌ Error", Content="ClaimReward remote not found", Duration=4, Icon="alert-circle"})
+        return false
+    end
+
+    local ok, err = pcall(function()
+        -- original script fired: claimEvent:FireServer("Money", amount)
+        -- some games expect different args — if that fails, fallback to amount-only
+        local successCall, successErr = pcall(function() claimRemote:FireServer("Money", amount) end)
+        if not successCall then
+            -- fallback
+            pcall(function() claimRemote:FireServer(amount) end)
+        end
     end)
 
     if ok then
-        NotifierNew({Title = "✅ Success", Content = "Claimed $" .. tostring(amount) .. "!", Duration = 3, Icon = "check"})
+        Notify({Title="✅ Claimed", Content="Requested claim: $"..tostring(amount), Duration=3, Icon="check"})
         return true
     else
-        NotifierNew({Title = "❌ Error", Content = "Failed to claim money: " .. tostring(err), Duration = 4, Icon = "alert-circle"})
+        Notify({Title="❌ Error", Content="Failed to fire remote: "..tostring(err), Duration=4, Icon="alert-circle"})
         return false
     end
 end
 
 -- ============================
--- Auto-claim loop
+-- Auto-claim loop (background)
 -- ============================
 task.spawn(function()
     while true do
         task.wait(0.5)
         if autoClaim and not autoClaimActive then
             autoClaimActive = true
-            executeClaim(claimAmount)
-            -- wait for configured delay (safeguard)
+            local ok = pcall(function() executeClaim(claimAmount) end)
+            if not ok then
+                Debug("AutoClaim: executeClaim pcall failed")
+            end
+            -- wait for configured delay
             local waited = 0
-            while waited < autoClaimDelay do
-                task.wait(0.25)
-                waited = waited + 0.25
-                if not autoClaim then break end
+            while autoClaim and waited < autoClaimDelay do
+                task.wait(0.25); waited = waited + 0.25
             end
             autoClaimActive = false
         end
@@ -159,178 +233,152 @@ task.spawn(function()
 end)
 
 -- ============================
--- Build WindUI window & layout
+-- Build WindUI interface (v2 API)
 -- ============================
 local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis Hub",
     Icon = "sparkles",
     Author = "NovaAxis",
     Folder = ConfigManager.Directory,
-    Size = UDim2.fromOffset(880, 560),
-    MinSize = Vector2.new(640, 420),
+    Size = UDim2.fromOffset(920, 640),
+    MinSize = Vector2.new(700, 480),
     Transparent = true,
     Theme = "Nova Neon",
     Resizable = true,
-    SideBarWidth = 220
+    SideBarWidth = 240,
+    -- animations and effects similar to old project
+    -- (assumes WindUI supports such options; if not, it's harmless)
 })
 
 Window:SetToggleKey(Enum.KeyCode.LeftAlt)
 
--- Welcome notification
-NotifierNew({Title = "💫 NovaAxis Hub", Content = "Successfully loaded for 99 Nights In The Forest!", Duration = 4, Icon = "sparkles"})
+Notify({Title="💫 NovaAxis Hub", Content="Loaded — WindUI v2 interface ready", Duration=3, Icon="sparkles"})
 
--- ----------------------------
--- Category: Money Farm (Main)
--- ----------------------------
-Window:DrawCategory({ Name = "💰 Money Farm" })
-
-local MainTab = Window:DrawTab({
-    Name = "Main Features",
-    Icon = "dollar-sign",
-    EnableScrolling = true
-})
+-- ---------- Main Tab ----------
+local MainTab = Window:Tab({ Title = "Main Features", Icon = "dollar-sign" })
 
 -- Claim Section (left)
-local ClaimSection = MainTab:DrawSection({
-    Name = "💵 Claim Money",
-    Position = 'left'
-})
+local ClaimSection = MainTab:Section({ Title = "💵 Claim Money", Icon = "credit-card", Opened = true })
 
-ClaimSection:AddSlider({
-    Name = "Claim Amount",
+ClaimSection:Slider({
+    Title = "Claim Amount",
+    Description = "Set amount to claim",
     Min = MIN_CLAIM_AMOUNT,
     Max = MAX_CLAIM_AMOUNT,
     Default = DEFAULT_CLAIM_AMOUNT,
     Round = 0,
-    Flag = "ClaimAmount",
+    Value = DEFAULT_CLAIM_AMOUNT,
     Callback = function(value)
         claimAmount = value
     end
 })
 
-ClaimSection:AddButton({
-    Name = "💰 Claim Money",
+ClaimSection:Button({
+    Title = "💰 Claim Money",
+    Description = "Send claim request with selected amount",
     Callback = function()
         executeClaim(claimAmount)
     end
 })
 
-ClaimSection:AddParagraph({
+ClaimSection:Paragraph({
     Title = "ℹ️ Info",
-    Content = "Use the slider to set the amount, then click the button to claim money. Make sure the server has the 'ClaimReward' remote under ReplicatedStorage."
+    Content = "Use the slider to set amount and click Claim. If ClaimReward remote isn't found, the script will notify you."
 })
 
 -- Auto Claim Section (left)
-local AutoSection = MainTab:DrawSection({
-    Name = "🔄 Auto Claim",
-    Position = 'left'
-})
+local AutoSection = MainTab:Section({ Title = "🔄 Auto Claim", Icon = "repeat", Opened = true })
 
-AutoSection:AddToggle({
-    Name = "Enable Auto Claim",
-    Flag = "AutoClaim",
+AutoSection:Toggle({
+    Title = "Enable Auto Claim",
+    Description = "Automatically claim every X seconds",
     Default = false,
     Callback = function(value)
         autoClaim = value
         if value then
-            NotifierNew({Title = "✅ Enabled", Content = "Auto Claim is now active!", Duration = 3, Icon = "play"})
+            Notify({Title="✅ Auto Claim", Content="Auto Claim enabled", Duration=2, Icon="play"})
         else
-            NotifierNew({Title = "⏸️ Disabled", Content = "Auto Claim has been stopped.", Duration = 3, Icon = "pause"})
+            Notify({Title="⏸ Auto Claim", Content="Auto Claim disabled", Duration=2, Icon="pause"})
         end
     end
 })
 
-AutoSection:AddSlider({
-    Name = "Auto Claim Delay (seconds)",
+AutoSection:Slider({
+    Title = "Auto Claim Delay (seconds)",
+    Description = "Delay between automatic claims",
     Min = 1,
-    Max = 30,
+    Max = 60,
     Default = 5,
     Round = 0,
-    Flag = "AutoClaimDelay",
+    Value = 5,
     Callback = function(value)
         autoClaimDelay = value
     end
 })
 
-AutoSection:AddParagraph({
+AutoSection:Paragraph({
     Title = "⚡ How it works",
-    Content = "When enabled, the script will automatically claim the set amount every X seconds."
+    Content = "When enabled, the script automatically triggers claim with configured amount every X seconds."
 })
 
 -- Quick Claim Section (right)
-local QuickSection = MainTab:DrawSection({
-    Name = "⚡ Quick Claim",
-    Position = 'right'
-})
+local QuickSection = MainTab:Section({ Title = "⚡ Quick Claim", Icon = "zap", Opened = true })
 
 local quickAmounts = {100, 500, 1000, 5000, 10000, 50000, 100000}
 for _, amt in ipairs(quickAmounts) do
-    QuickSection:AddButton({
-        Name = "💵 Claim $" .. tostring(amt),
+    QuickSection:Button({
+        Title = "💵 Claim $"..tostring(amt),
+        Description = "Instant claim $"..tostring(amt),
         Callback = (function(a) return function() executeClaim(a) end end)(amt)
     })
 end
 
-QuickSection:AddParagraph({
+QuickSection:Paragraph({
     Title = "📌 Quick Access",
-    Content = "Use these buttons for instant claims of preset amounts."
+    Content = "Use these buttons to immediately send a claim request for common amounts."
 })
 
 -- Info Section (right)
-local InfoSection = MainTab:DrawSection({
-    Name = "ℹ️ Information",
-    Position = 'right'
-})
+local InfoSection = MainTab:Section({ Title = "ℹ️ Information", Icon = "info", Opened = true })
 
-InfoSection:AddParagraph({
+InfoSection:Paragraph({
     Title = "💫 NovaAxis Hub",
-    Content = "Version: 2.5\nGame: 99 Nights In The Forest\nCreated by: NovaAxis"
+    Content = "Version: 3.0-full\nGame: 99 Nights In The Forest\nAuthor: NovaAxis"
 })
 
--- Removed "Copy GitHub (author)" per request — no external references added.
-
-InfoSection:AddParagraph({
+InfoSection:Paragraph({
     Title = "⌨️ Controls",
-    Content = "Press Left Alt to toggle UI.\nUse the slider or quick buttons to claim money.\nEnable Auto Claim to repeatedly claim automatically."
+    Content = "Press Left Alt to toggle the UI. Use sliders/buttons to control claims."
 })
 
--- ----------------------------
--- Category: Settings (UI & Config)
--- ----------------------------
-Window:DrawCategory({ Name = "⚙️ Settings" })
+-- ---------- UI Settings Tab ----------
+local UISettingsTab = Window:Tab({ Title = "UI Settings", Icon = "settings" })
+local UISettingsSection = UISettingsTab:Section({ Title = "🎨 UI Customization", Icon = "paintbrush", Opened = true })
 
--- UI Settings Tab
-local SettingTab = Window:DrawTab({
-    Icon = "settings",
-    Name = "UI Settings",
-    Type = "Single",
-    EnableScrolling = true
+UISettingsSection:Paragraph({
+    Title = "Theme",
+    Content = "Current theme: Nova Neon (RGB 120,80,255). Customize accent color below."
 })
 
-local UISettings = SettingTab:DrawSection({
-    Name = "🎨 UI Customization",
-})
-
-UISettings:AddToggle({
-    Name = "Always Show Frame",
+UISettingsSection:Toggle({
+    Title = "Always Show Frame",
+    Description = "Placeholder — show window always (if supported)",
     Default = false,
-    Flag = "AlwaysShowFrame",
     Callback = function(v)
-        -- WindUI behavior may differ; store as placeholder setting
-        NotifierNew({Title = "UI", Content = "Always Show Frame set to: " .. tostring(v), Duration = 2})
-    end,
+        -- Placeholder: WindUI may not expose this directly
+        Notify({Title="UI Setting", Content="Always Show Frame set to: "..tostring(v), Duration=2})
+    end
 })
 
-UISettings:AddColorPicker({
-    Name = "Highlight Color",
-    Default = WindUI and Color3.fromRGB(120,80,255) or Color3.new(1,0,1),
-    Flag = "HighlightColor",
-    Callback = function(v)
-        -- Apply theme update
+UISettingsSection:Colorpicker({
+    Title = "Highlight Color",
+    Description = "Change accent color",
+    Default = Color3.fromRGB(120,80,255),
+    Callback = function(color)
         WindUI:AddTheme({
             Name = "Nova Neon - Custom",
-            Accent = v,
-            Dialog = Color3.fromRGB(18,18,20),
+            Accent = color,
+            Dialog = Color3.fromRGB(18, 18, 20),
             Outline = Color3.fromRGB(255,255,255),
             Text = Color3.fromRGB(230,230,230),
             Placeholder = Color3.fromRGB(130,130,140),
@@ -339,94 +387,88 @@ UISettings:AddColorPicker({
             Icon = Color3.fromRGB(190,180,255)
         })
         WindUI:SetTheme("Nova Neon - Custom")
-        NotifierNew({Title = "UI", Content = "Accent color updated", Duration = 2})
-    end,
+        Notify({Title="Theme", Content="Accent updated", Duration=2})
+    end
 })
 
-UISettings:AddButton({
-    Name = "Get Theme",
+UISettingsSection:Button({
+    Title = "Get Theme Name",
+    Description = "Copy current theme name to clipboard",
     Callback = function()
-        NotifierNew({Title = "Theme", Content = "Current theme: Nova Neon", Duration = 3})
+        pcall(function() setclipboard("Nova Neon") end)
+        Notify({Title="Theme", Content="Theme name copied", Duration=2})
     end
 })
 
--- Theme Tab
-local ThemeTab = Window:DrawTab({
-    Icon = "paintbrush",
-    Name = "Themes",
-    Type = "Single"
-})
+-- ---------- Config Tab ----------
+local ConfigTab = Window:Tab({ Title = "Config", Icon = "folder" })
+local ConfigSection = ConfigTab:Section({ Title = "Config Manager", Icon = "archive", Opened = true })
 
-ThemeTab:DrawSection({ Name = "🎨 UI Themes" }):AddDropdown({
-    Name = "Select Theme",
-    Default = "Nova Neon",
-    Flag = "Theme",
-    Values = {
-        "Nova Neon",
-        "Dark Green",
-        "Dark Blue",
-        "Purple Rose",
-        "Skeet"
-    },
-    Callback = function(v)
-        -- Map simple themes (Nova Neon is already applied)
-        if v == "Nova Neon" then
-            WindUI:SetTheme("Nova Neon")
-            NotifierNew({Title = "Theme", Content = "Nova Neon applied", Duration = 2})
-        else
-            -- fallback: change accent roughly
-            local palette = {
-                ["Dark Green"] = Color3.fromRGB(0,150,80),
-                ["Dark Blue"] = Color3.fromRGB(40,120,255),
-                ["Purple Rose"] = Color3.fromRGB(180,60,200),
-                ["Skeet"] = Color3.fromRGB(0,200,200),
-            }
-            local accent = palette[v] or Color3.fromRGB(120,80,255)
-            WindUI:AddTheme({ Name = "CustomTheme_" .. v, Accent = accent })
-            WindUI:SetTheme("CustomTheme_" .. v)
-            NotifierNew({Title = "Theme", Content = v .. " applied", Duration = 2})
-        end
-    end
-})
-
--- Config Tab (config manager)
-local ConfigTab = Window:DrawTab({
-    Icon = "folder",
-    Name = "Config",
-    Type = "Single",
-    EnableScrolling = true
-})
-
-local ConfigSection = ConfigTab:DrawSection({
-    Name = "Config Manager",
-})
-
-ConfigSection:AddParagraph({
+ConfigSection:Paragraph({
     Title = "💾 Config",
-    Content = "This section contains save/load placeholders for settings. Currently stored in session memory."
+    Content = "Save/load your settings. Memory storage by default; file storage available if executor supports writefile/readfile."
 })
 
-ConfigSection:AddButton({
-    Name = "Save Current Settings",
+ConfigSection:Button({
+    Title = "Save (memory)",
+    Description = "Save settings to memory store",
     Callback = function()
         ConfigManager:Save()
     end
 })
 
-ConfigSection:AddButton({
-    Name = "Load Settings",
+ConfigSection:Button({
+    Title = "Load (memory)",
+    Description = "Load settings from memory store",
     Callback = function()
         ConfigManager:Load()
     end
 })
 
--- Initialization of ConfigManager store (optional)
-ConfigManager.current = ConfigManager.current or {}
+ConfigSection:Button({
+    Title = "Save to Disk (if supported)",
+    Description = "Write JSON config to disk (writefile/readfile must be available)",
+    Callback = function()
+        ConfigManager:SaveToDisk()
+    end
+})
 
--- ----------------------------
--- Final prints and ready state
--- ----------------------------
-print("✅ NovaAxis Hub (99 Nights) loaded successfully (WindUI, Compkiller-free).")
-print("⌨️ Press Left Alt to toggle UI.")
+ConfigSection:Button({
+    Title = "Load from Disk (if supported)",
+    Description = "Load JSON config from disk",
+    Callback = function()
+        ConfigManager:LoadFromDisk()
+    end
+})
 
--- End of file
+-- ---------- Information Tab ----------
+local InfoTab = Window:Tab({ Title = "Information", Icon = "info" })
+local InfoTabSection = InfoTab:Section({ Title = "💫 NovaAxis Hub", Icon = "sparkles", Opened = true })
+
+InfoTabSection:Paragraph({
+    Title = "About",
+    Content = "NovaAxis Hub — WindUI v2 rewrite\nVersion: 3.0-full\nAuthor: NovaAxis"
+})
+
+InfoTabSection:Button({
+    Title = "🌐 Discord Server",
+    Description = "Copy invite to clipboard",
+    Callback = function()
+        pcall(function() setclipboard("https://discord.gg/Eg98P4wf2V") end)
+        Notify({Title="Discord", Content="Discord invite copied", Duration=2})
+    end
+})
+
+InfoTabSection:Paragraph({
+    Title = "Notes",
+    Content = "If the ClaimReward remote is missing or not working, check the game's ReplicatedStorage for remote names/structure."
+})
+
+-- ============================
+-- Final messages
+-- ============================
+Debug("NovaAxis Hub v3.0 UI built (WindUI v2). Sections opened by default.")
+print("✅ NovaAxis Hub (99 Nights) loaded successfully.")
+print("⌨️ Press Left Alt to toggle UI")
+
+-- End of script
