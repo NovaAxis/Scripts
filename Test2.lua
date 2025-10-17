@@ -51,10 +51,15 @@ local Window = WindUI:CreateWindow({
     }
 })
 
--- Create Main Tab
+-- Create Tabs
 local MainTab = Window:Tab({
     Title = "💰 Money Farm",
     Icon = "dollar-sign",
+})
+
+local InfoTab = Window:Tab({
+    Title = "ℹ️ Information",
+    Icon = "info",
 })
 
 -- Claim Money Function
@@ -73,7 +78,7 @@ local function executeClaim(amount)
             "Money",
             amount
         }
-        ReplicatedStorage:WaitForChild("ClaimReward"):FireServer(unpack(args))
+        game:GetService("ReplicatedStorage"):WaitForChild("ClaimReward"):FireServer(unpack(args))
     end)
     
     if success then
@@ -135,7 +140,7 @@ ClaimSection:Section({
 })
 
 -- Information Section
-local InfoSection = MainTab:Section({
+local InfoSection = InfoTab:Section({
     Title = "ℹ️ Information",
 })
 
