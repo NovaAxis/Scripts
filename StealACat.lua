@@ -60,6 +60,93 @@ local UtilityTab = Window:Tab({
 })
 
 ----------------------------------------------------------
+-- 🔹 AUTO LOCK SYSTEM (Locker)
+----------------------------------------------------------
+local autoLock = false
+local autoLockThread
+local lockDelay = 60 -- default delay (seconds)
+
+local function lockLocker()
+    local playerBase = baseFolder:FindFirstChild(player.Name .. "'s Base")
+    if not playerBase then 
+        warn("⚠️ Player base not found!") 
+        return 
+    end
+
+    local floor1 = playerBase:FindFirstChild("Floor1")
+    if not floor1 then 
+        warn("⚠️ Floor1 not found!") 
+        return 
+    end
+
+    local locker = floor1:FindFirstChild("Locker")
+    if not locker then 
+        warn("⚠️ Locker not found!") 
+        return 
+    end
+
+    local args = { locker }
+    local lockRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Base:Lock")
+    lockRemote:FireServer(unpack(args))
+    print("🔒 Base locked for", player.Name)
+end
+
+MainTab:Toggle({
+    Title = "Auto Lock Base",
+    Description = "Automatically locks your base every set interval",
+    Icon = "lock",
+    Default = false,
+    Callback = function(state)
+        autoLock = state
+        if autoLock then
+            WindUI:Notify({
+                Title = "🔒 Auto Lock Enabled",
+                Content = "Base will lock every " .. lockDelay .. " seconds.",
+                Duration = 3,
+                Icon = "lock"
+            })
+            autoLockThread = task.spawn(function()
+                while autoLock do
+                    lockLocker()
+                    task.wait(lockDelay)
+                end
+            end)
+        else
+            WindUI:Notify({
+                Title = "🔓 Auto Lock Disabled",
+                Content = "Stopped automatic base locking.",
+                Duration = 3,
+                Icon = "unlock"
+            })
+            autoLock = false
+        end
+    end
+})
+
+MainTab:Slider({
+    Title = "Auto Lock Interval (seconds)",
+    Description = "Set how often the base will lock (60 - 160 sec)",
+    Icon = "clock",
+    Value = {
+        Min = 60,
+        Max = 160,
+        Default = 60,
+    },
+    Callback = function(value)
+        lockDelay = value
+        if autoLock then
+            WindUI:Notify({
+                Title = "⏱️ Auto Lock Interval Updated",
+                Content = "Now locking every " .. value .. " seconds",
+                Duration = 3,
+                Icon = "clock"
+            })
+        end
+    end
+})
+
+
+----------------------------------------------------------
 -- 🔹 AUTO COLLECT SYSTEM
 ----------------------------------------------------------
 local autoCollect = false
