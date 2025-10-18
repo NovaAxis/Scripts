@@ -49,10 +49,22 @@ local MainTab = Window:Tab({
     Locked = false,
 })
 
+local InfoSection = InfoTab:Section({
+    Title = "💫 NovaAxis Hub",
+    Icon = "sparkles",
+    Opened = true
+})
+
 local UtilityTab = Window:Tab({
     Title = "Utility",
     Icon = "wrench",
     Locked = false,
+})
+
+local InfoSection = InfoTab:Section({
+    Title = "💫 NovaAxis Hub",
+    Icon = "sparkles",
+    Opened = true
 })
 
 -- WalkSpeed
