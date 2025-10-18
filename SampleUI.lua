@@ -180,3 +180,32 @@ UtilityTab:Button({
         })
     end
 })
+
+local InfoTab = Window:Tab({
+    Title = "Information",
+    Icon = "info",
+    Locked = false,
+})
+
+local InfoSection = InfoTab:Section({
+    Title = "💫 NovaAxis Hub",
+    Icon = "sparkles",
+    Opened = true
+})
+
+InfoSection:Button({
+    Title = "🌐 Discord Server",
+    Description = "Click to copy invite link (Discord.gg/Eg98P4wf2V)",
+    Icon = "discord",
+    Callback = function()
+        pcall(function()
+            setclipboard("https://discord.gg/Eg98P4wf2V")
+        end)
+        WindUI:Notify({
+            Title = "✅ Copied",
+            Content = "Discord invite copied to clipboard!",
+            Duration = 3,
+            Icon = "copy"
+        })
+    end
+})
