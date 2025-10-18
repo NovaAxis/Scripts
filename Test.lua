@@ -1,5 +1,5 @@
 -- ============================
--- Anti-Cheat Bypass (запускается перед UI) okak
+-- Anti-Cheat Bypass (запускается перед UI)
 -- ============================
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -137,7 +137,6 @@ local TARGET_NAMES = {
 -- State variables for Instant Steal
 -- ============================
 local isRunning = false
-local promptTimeout = 5
 
 -- ============================
 -- Instant Steal Functions
@@ -239,43 +238,33 @@ local function findProximityPromptInModel(rootModel, originPosition, maxDistance
     return bestPrompt
 end
 
-local function activateProximityPromptWithTimeout(prompt, timeout)
-    local success = false
-    local errorMessage = nil
+local function activateProximityPromptInstantly(prompt)
+    if not prompt or not prompt:IsA("ProximityPrompt") then
+        return false, "Invalid prompt"
+    end
 
-    local thread = task.spawn(function()
-        local result, err = pcall(function()
-            if prompt and prompt:IsA("ProximityPrompt") then
-                prompt:InputHoldBegin()
-                local holdDuration = prompt.HoldDuration or 0.5
-                task.wait(holdDuration)
-                prompt:InputHoldEnd()
+    -- Устанавливаем HoldDuration в 0 для мгновенной активации
+    local originalHoldDuration = prompt.HoldDuration
+    prompt.HoldDuration = 0
 
-                local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
-                if remoteEvent then
-                    pcall(function() remoteEvent:FireServer() end)
-                end
-                success = true
-            else
-                error("Object is not a ProximityPrompt")
-            end
-        end)
-
-        if not result then
-            errorMessage = err
+    local success, result = pcall(function()
+        -- Активируем prompt
+        prompt:InputHoldBegin()
+        prompt:InputHoldEnd()
+        
+        -- Ищем RemoteEvent и вызываем его
+        local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
+        if remoteEvent then
+            remoteEvent:FireServer()
         end
+        
+        return true
     end)
 
-    local startTime = tick()
-    while not success and (tick() - startTime) < timeout do
-        task.wait(0.1)
-    end
+    -- Восстанавливаем оригинальное значение
+    prompt.HoldDuration = originalHoldDuration
 
-    if not success then
-        return false, "Timeout: Prompt not activated in " .. timeout .. " seconds"
-    end
-
-    return success, errorMessage
+    return success, result
 end
 
 local function executeInstantSteal()
@@ -345,14 +334,14 @@ local function executeInstantSteal()
     local prompt = findProximityPromptInModel(targetBase or targetModel, targetPosition, 25)
 
     if prompt then
-        WindUI:Notify({ Title = "⏳ Info", Content = "Activating prompt... (" .. promptTimeout .. "s timeout)", Duration = 2, Icon = "clock" })
-        local ok, err = activateProximityPromptWithTimeout(prompt, promptTimeout)
+        WindUI:Notify({ Title = "⚡ Info", Content = "Instantly activating prompt...", Duration = 2, Icon = "zap" })
+        local ok, err = activateProximityPromptInstantly(prompt)
 
         if ok then
-            WindUI:Notify({ Title = "✅ Success", Content = "Prompt activated!", Duration = 2, Icon = "check" })
+            WindUI:Notify({ Title = "✅ Success", Content = "Prompt instantly activated!", Duration = 2, Icon = "check" })
             task.wait(1)
         else
-            WindUI:Notify({ Title = "⚠️ Warning", Content = err or "Prompt timeout!", Duration = 3, Icon = "alert-circle" })
+            WindUI:Notify({ Title = "⚠️ Warning", Content = err or "Prompt activation failed!", Duration = 3, Icon = "alert-circle" })
         end
     else
         WindUI:Notify({ Title = "⚠️ Warning", Content = "Prompt not found!", Duration = 2, Icon = "alert-circle" })
@@ -453,7 +442,7 @@ local StealSection = MainTab:Section({
 
 StealSection:Button({
     Title = "⚡ Execute Instant Steal",
-    Description = "Teleport, activate prompt, return.",
+    Description = "Teleport, instantly activate prompt, return.",
     Icon = "zap",
     Callback = function()
         task.spawn(function()
@@ -669,4 +658,3 @@ WindUI:Notify({
     Duration = 3,
     Icon = "sparkles"
 })
-
