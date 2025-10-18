@@ -1,5 +1,5 @@
 -- ============================
--- Anti-Cheat Bypass (запускается перед UI)
+-- Anti-Cheat Bypass (запускается перед UI) okak
 -- ============================
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -238,6 +238,52 @@ local function findProximityPromptInModel(rootModel, originPosition, maxDistance
     return bestPrompt
 end
 
+local function findProximityPromptAroundPlayer(searchTime)
+    local character = player.Character
+    if not character then return nil end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return nil end
+    
+    local startTime = tick()
+    local searchRadius = 25
+    
+    WindUI:Notify({ Title = "🔍 Поиск", Content = "Ищу proximity prompt вокруг игрока...", Duration = 1, Icon = "search" })
+    
+    while tick() - startTime < searchTime do
+        -- Ищем в workspace
+        for _, descendant in ipairs(Workspace:GetDescendants()) do
+            if descendant:IsA("ProximityPrompt") and descendant.Enabled then
+                local part = descendant.Parent
+                if part and part:IsA("BasePart") then
+                    local distance = (part.Position - humanoidRootPart.Position).Magnitude
+                    if distance <= searchRadius then
+                        WindUI:Notify({ Title = "✅ Найдено", Content = "Proximity prompt найден!", Duration = 1, Icon = "check" })
+                        return descendant
+                    end
+                end
+            end
+        end
+        
+        -- Ищем в базе цели
+        local playerBase = findPlayerBase()
+        if playerBase then
+            local targetModel, targetBase = findTargetFemboy(playerBase)
+            if targetBase then
+                local prompt = findProximityPromptInModel(targetBase, humanoidRootPart.Position, searchRadius)
+                if prompt then
+                    WindUI:Notify({ Title = "✅ Найдено", Content = "Proximity prompt найден в базе!", Duration = 1, Icon = "check" })
+                    return prompt
+                end
+            end
+        end
+        
+        task.wait(0.1) -- Небольшая задержка между поисками
+    end
+    
+    return nil
+end
+
 local function activateProximityPromptInstantly(prompt)
     if not prompt or not prompt:IsA("ProximityPrompt") then
         return false, "Invalid prompt"
@@ -331,10 +377,12 @@ local function executeInstantSteal()
 
     task.wait(0.3)
 
-    local prompt = findProximityPromptInModel(targetBase or targetModel, targetPosition, 25)
+    -- Ищем proximity prompt в течение 1 секунды
+    WindUI:Notify({ Title = "🔍 Поиск", Content = "Ищу proximity prompt (1 сек)...", Duration = 1, Icon = "search" })
+    local prompt = findProximityPromptAroundPlayer(1) -- Поиск в течение 1 секунды
 
     if prompt then
-        WindUI:Notify({ Title = "⚡ Info", Content = "Instantly activating prompt...", Duration = 2, Icon = "zap" })
+        WindUI:Notify({ Title = "⚡ Активация", Content = "Instantly activating prompt...", Duration = 2, Icon = "zap" })
         local ok, err = activateProximityPromptInstantly(prompt)
 
         if ok then
@@ -344,7 +392,7 @@ local function executeInstantSteal()
             WindUI:Notify({ Title = "⚠️ Warning", Content = err or "Prompt activation failed!", Duration = 3, Icon = "alert-circle" })
         end
     else
-        WindUI:Notify({ Title = "⚠️ Warning", Content = "Prompt not found!", Duration = 2, Icon = "alert-circle" })
+        WindUI:Notify({ Title = "⚠️ Warning", Content = "Prompt not found after 1 second search!", Duration = 2, Icon = "alert-circle" })
     end
 
     local spawn = playerBase:FindFirstChild("Spawn")
