@@ -1,7 +1,7 @@
--- Load WindUI
+-- 🌀 Load WindUI
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
--- Create main window
+-- 🌟 Create main window
 local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis",
     Icon = "sparkles",
@@ -13,7 +13,7 @@ local Window = WindUI:CreateWindow({
     },
 })
 
--- Customize open button
+-- 🎨 Customize open button
 Window:EditOpenButton({
     Title = "💫 NovaAxis",
     Icon = "sparkles",
@@ -28,7 +28,7 @@ Window:EditOpenButton({
     Draggable = true,
 })
 
--- Add and set theme
+-- 🌈 Theme setup
 WindUI:AddTheme({
     Name = "Nova Neon",
     Accent = Color3.fromRGB(120, 80, 255),
@@ -42,22 +42,15 @@ WindUI:AddTheme({
 })
 WindUI:SetTheme("Nova Neon")
 
--- Tabs
+----------------------------------------------------------
+-- 🔹 MAIN TAB — Claim Money
+----------------------------------------------------------
 local MainTab = Window:Tab({
     Title = "Main",
     Icon = "wallet",
     Locked = false,
 })
 
-local UtilityTab = Window:Tab({
-    Title = "Utility",
-    Icon = "wrench",
-    Locked = false,
-})
-
-----------------------------------------------------------
--- 🔹 MAIN TAB — Claim Money
-----------------------------------------------------------
 local moneyAmount = 0
 
 MainTab:Input({
@@ -79,18 +72,22 @@ MainTab:Button({
             warn("⚠️ Please enter a valid amount first!")
             return
         end
-        local args = {
-            "Money",
-            moneyAmount
-        }
+        local args = { "Money", moneyAmount }
         game:GetService("ReplicatedStorage"):WaitForChild("ClaimReward"):FireServer(unpack(args))
         print("💰 Claimed Money:", moneyAmount)
     end
 })
 
 ----------------------------------------------------------
--- 🔹 UTILITY TAB — WalkSpeed
+-- 🔹 UTILITY TAB
 ----------------------------------------------------------
+local UtilityTab = Window:Tab({
+    Title = "Utility",
+    Icon = "wrench",
+    Locked = false,
+})
+
+-- WalkSpeed
 UtilityTab:Slider({
     Title = "WalkSpeed", 
     Description = "Adjust your walking speed (16 - 100)",
@@ -108,9 +105,7 @@ UtilityTab:Slider({
     end
 })
 
-----------------------------------------------------------
--- 🔹 UTILITY TAB — Noclip
-----------------------------------------------------------
+-- Noclip
 local noclip = false
 local noclipConnection
 
@@ -146,9 +141,7 @@ UtilityTab:Toggle({
     end
 })
 
-----------------------------------------------------------
--- 🔹 UTILITY TAB — Infinite Jump
-----------------------------------------------------------
+-- Infinite Jump
 local infiniteJump = false
 local userInputService = game:GetService("UserInputService")
 
@@ -171,29 +164,24 @@ userInputService.JumpRequest:Connect(function()
     end
 end)
 
-----------------------------------------------------------
--- 🔹 UTILITY TAB — FPS Boost
-----------------------------------------------------------
+-- FPS Boost
 UtilityTab:Button({
     Title = "FPS Boost",
     Description = "Optimize game for better performance",
+    Icon = "gauge",
     Callback = function()
-        -- Lower graphic settings and remove unnecessary effects
         for _, v in pairs(workspace:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.Material = Enum.Material.SmoothPlastic
                 v.Reflectance = 0
-            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
                 v.Enabled = false
             elseif v:IsA("Explosion") then
                 v.BlastPressure = 0
                 v.BlastRadius = 0
-            elseif v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
-                v.Enabled = false
             end
         end
 
-        -- Lighting optimization
         local lighting = game:GetService("Lighting")
         lighting.GlobalShadows = false
         lighting.FogEnd = 1e10
@@ -201,7 +189,6 @@ UtilityTab:Button({
         lighting.EnvironmentDiffuseScale = 0
         lighting.EnvironmentSpecularScale = 0
 
-        -- Reduce terrain details
         local terrain = workspace:FindFirstChildOfClass("Terrain")
         if terrain then
             terrain.WaterWaveSize = 0
@@ -210,27 +197,29 @@ UtilityTab:Button({
             terrain.WaterTransparency = 1
         end
 
-        -- Remove textures
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Decal") or obj:IsA("Texture") then
                 obj.Transparency = 1
             end
         end
 
-        -- Lower render settings
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-
-        print("✅ FPS Boost applied! Game performance optimized.")
+        WindUI:Notify({
+            Title = "✅ FPS Boost",
+            Content = "Game performance optimized successfully!",
+            Duration = 3,
+            Icon = "gauge"
+        })
     end
 })
 
 ----------------------------------------------------------
--- 🔹 INFORMATION TAB — NovaAxis Hub
+-- 🔹 INFORMATION TAB — Discord Button Only
 ----------------------------------------------------------
 local InfoTab = Window:Tab({
     Title = "Information",
     Icon = "info",
-    EnableScrolling = true
+    Locked = false,
 })
 
 local InfoSection = InfoTab:Section({
@@ -239,20 +228,14 @@ local InfoSection = InfoTab:Section({
     Opened = true
 })
 
-InfoSection:Paragraph({
-    Title = "About",
-    Content = "NovaAxis Hub — WindUI rewrite v4.8\nGame: Steal A Femboy\nAuthor: NovaAxis"
-})
-
 InfoSection:Button({
     Title = "🌐 Discord Server",
-    Desc = "Copy Discord invite to clipboard",
+    Description = "Click to copy invite link (Discord.gg/Eg98P4wf2V)",
+    Icon = "discord",
     Callback = function()
         pcall(function()
             setclipboard("https://discord.gg/Eg98P4wf2V")
         end)
-
-        -- Уведомление WindUI
         WindUI:Notify({
             Title = "✅ Copied",
             Content = "Discord invite copied to clipboard!",
@@ -261,4 +244,3 @@ InfoSection:Button({
         })
     end
 })
-
