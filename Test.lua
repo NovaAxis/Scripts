@@ -225,7 +225,7 @@ UtilityTab:Button({
 })
 
 ----------------------------------------------------------
--- 🔹 INFORMATION TAB — Only Discord Button
+-- 🔹 INFORMATION TAB — NovaAxis Hub
 ----------------------------------------------------------
 local InfoTab = Window:Tab({
     Title = "Information",
@@ -233,13 +233,26 @@ local InfoTab = Window:Tab({
     EnableScrolling = true
 })
 
+local InfoSection = InfoTab:Section({
+    Title = "💫 NovaAxis Hub",
+    Icon = "sparkles",
+    Opened = true
+})
+
+InfoSection:Paragraph({
+    Title = "About",
+    Content = "NovaAxis Hub — WindUI rewrite v4.8\nGame: Steal A Femboy\nAuthor: NovaAxis"
+})
+
 InfoSection:Button({
     Title = "🌐 Discord Server",
     Desc = "Copy Discord invite to clipboard",
     Callback = function()
-        pcall(function() setclipboard("https://discord.gg/Eg98P4wf2V") end)
+        pcall(function()
+            setclipboard("https://discord.gg/Eg98P4wf2V")
+        end)
 
-        -- Уведомление через WindUI Notify
+        -- Уведомление WindUI
         WindUI:Notify({
             Title = "✅ Copied",
             Content = "Discord invite copied to clipboard!",
@@ -248,3 +261,4 @@ InfoSection:Button({
         })
     end
 })
+
