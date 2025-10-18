@@ -226,26 +226,11 @@ UtilityTab:Button({
 })
 
 ----------------------------------------------------------
--- 🔹 INFORMATION TAB — Discord & Info
+-- 🔹 INFORMATION TAB — Only Discord Button
 ----------------------------------------------------------
-InfoTab:Label({
-    Title = "💫 NovaAxis Information",
-    Description = "All details about this script and community",
-})
-
-InfoTab:Label({
-    Title = "👑 Developer",
-    Description = "Made by NovaAxis Team",
-})
-
-InfoTab:Label({
-    Title = "🪩 Version",
-    Description = "v1.0.0 — Stable Release",
-})
-
 InfoTab:Button({
-    Title = "🌐 Join our Discord",
-    Description = "Join the official NovaAxis Discord server",
+    Title = "💬 Join our Discord",
+    Description = "Click to copy invite link (Discord.gg/Eg98P4wf2V)",
     Icon = "discord",
     Callback = function()
         setclipboard("https://discord.gg/Eg98P4wf2V")
