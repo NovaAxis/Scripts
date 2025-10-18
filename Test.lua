@@ -183,8 +183,8 @@ end)
 UtilityTab:Button({
     Title = "FPS Boost",
     Description = "Optimize game for better performance",
-    Icon = "click",
     Callback = function()
+        -- Lower graphic settings and remove unnecessary effects
         for _, v in pairs(workspace:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.Material = Enum.Material.SmoothPlastic
@@ -199,6 +199,7 @@ UtilityTab:Button({
             end
         end
 
+        -- Lighting optimization
         local lighting = game:GetService("Lighting")
         lighting.GlobalShadows = false
         lighting.FogEnd = 1e10
@@ -206,6 +207,7 @@ UtilityTab:Button({
         lighting.EnvironmentDiffuseScale = 0
         lighting.EnvironmentSpecularScale = 0
 
+        -- Reduce terrain details
         local terrain = workspace:FindFirstChildOfClass("Terrain")
         if terrain then
             terrain.WaterWaveSize = 0
@@ -214,13 +216,16 @@ UtilityTab:Button({
             terrain.WaterTransparency = 1
         end
 
+        -- Remove textures
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Decal") or obj:IsA("Texture") then
                 obj.Transparency = 1
             end
         end
 
+        -- Lower render settings
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+
         print("✅ FPS Boost applied! Game performance optimized.")
     end
 })
