@@ -55,7 +55,41 @@ local UtilityTab = Window:Tab({
     Locked = false,
 })
 
--- WalkSpeed Slider
+----------------------------------------------------------
+-- 🔹 MAIN TAB — Claim Money
+----------------------------------------------------------
+local moneyAmount = 0
+
+MainTab:Input({
+    Title = "Enter Amount",
+    Description = "Enter the amount of money to claim",
+    Placeholder = "Example: 100",
+    Numeric = true,
+    Callback = function(value)
+        moneyAmount = tonumber(value) or 0
+    end
+})
+
+MainTab:Button({
+    Title = "Claim Money",
+    Description = "Send a server request with your amount",
+    Callback = function()
+        if moneyAmount <= 0 then
+            warn("⚠️ Please enter a valid amount first!")
+            return
+        end
+        local args = {
+            "Money",
+            moneyAmount
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("ClaimReward"):FireServer(unpack(args))
+        print("💰 Claimed Money:", moneyAmount)
+    end
+})
+
+----------------------------------------------------------
+-- 🔹 UTILITY TAB — WalkSpeed
+----------------------------------------------------------
 UtilityTab:Slider({
     Title = "WalkSpeed", 
     Description = "Adjust your walking speed (16 - 100)",
@@ -72,7 +106,9 @@ UtilityTab:Slider({
     end
 })
 
--- Noclip Toggle
+----------------------------------------------------------
+-- 🔹 UTILITY TAB — Noclip
+----------------------------------------------------------
 local noclip = false
 local noclipConnection
 
@@ -86,7 +122,6 @@ UtilityTab:Toggle({
         if not char then return end
 
         if noclip then
-            -- Enable noclip
             noclipConnection = game:GetService("RunService").Stepped:Connect(function()
                 for _, part in pairs(char:GetDescendants()) do
                     if part:IsA("BasePart") then
@@ -95,7 +130,6 @@ UtilityTab:Toggle({
                 end
             end)
         else
-            -- Disable noclip and restore collisions
             if noclipConnection then
                 noclipConnection:Disconnect()
                 noclipConnection = nil
@@ -109,7 +143,9 @@ UtilityTab:Toggle({
     end
 })
 
--- Infinite Jump Toggle
+----------------------------------------------------------
+-- 🔹 UTILITY TAB — Infinite Jump
+----------------------------------------------------------
 local infiniteJump = false
 local userInputService = game:GetService("UserInputService")
 
@@ -122,7 +158,6 @@ UtilityTab:Toggle({
     end
 })
 
--- Infinite Jump Logic
 userInputService.JumpRequest:Connect(function()
     if infiniteJump then
         local player = game.Players.LocalPlayer
@@ -132,12 +167,13 @@ userInputService.JumpRequest:Connect(function()
     end
 end)
 
--- FPS Boost Button
+----------------------------------------------------------
+-- 🔹 UTILITY TAB — FPS Boost
+----------------------------------------------------------
 UtilityTab:Button({
     Title = "FPS Boost",
     Description = "Optimize game for better performance",
     Callback = function()
-        -- Lower graphic settings and remove unnecessary effects
         for _, v in pairs(workspace:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.Material = Enum.Material.SmoothPlastic
@@ -152,7 +188,6 @@ UtilityTab:Button({
             end
         end
 
-        -- Lighting optimization
         local lighting = game:GetService("Lighting")
         lighting.GlobalShadows = false
         lighting.FogEnd = 1e10
@@ -160,7 +195,6 @@ UtilityTab:Button({
         lighting.EnvironmentDiffuseScale = 0
         lighting.EnvironmentSpecularScale = 0
 
-        -- Reduce terrain details
         local terrain = workspace:FindFirstChildOfClass("Terrain")
         if terrain then
             terrain.WaterWaveSize = 0
@@ -169,16 +203,13 @@ UtilityTab:Button({
             terrain.WaterTransparency = 1
         end
 
-        -- Remove textures
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Decal") or obj:IsA("Texture") then
                 obj.Transparency = 1
             end
         end
 
-        -- Lower render settings
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-
         print("✅ FPS Boost applied! Game performance optimized.")
     end
 })
