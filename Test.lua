@@ -233,24 +233,10 @@ UtilityTab:Button({
 ----------------------------------------------------------
 -- 🔹 INFORMATION TAB — Only Discord Button
 ----------------------------------------------------------
-----------------------------------------------------------
--- 🔹 INFORMATION TAB — NovaAxis Hub
-----------------------------------------------------------
 local InfoTab = Window:Tab({
     Title = "Information",
     Icon = "info",
     EnableScrolling = true
-})
-
-local InfoSection = InfoTab:Section({
-    Title = "💫 NovaAxis Hub",
-    Icon = "sparkles",
-    Opened = true
-})
-
-InfoSection:Paragraph({
-    Title = "About",
-    Content = "NovaAxis Hub — WindUI rewrite v4.8\nGame: Steal A Femboy\nAuthor: NovaAxis"
 })
 
 InfoSection:Button({
@@ -268,4 +254,3 @@ InfoSection:Button({
         })
     end
 })
-
