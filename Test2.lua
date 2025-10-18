@@ -4,56 +4,74 @@ local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis",
     Icon = "sparkles", -- lucide icon. optional
     Author = "NovaAxis", -- optional
-    Window.Icon:Enable()
-    User = true
+    BackgroundImageTransparency = 0.45,
+        User = {
+        Enabled = true,
+        Anonymous = false,
+    },
 })
 
-WindUI:AddTheme({
-    Name = "Nova Neon",
-    Accent = Color3.fromRGB(120, 80, 255),
-    Dialog = Color3.fromRGB(18, 18, 20),
-    Outline = Color3.fromRGB(255, 255, 255),
-    Text = Color3.fromRGB(230, 230, 230),
-    Placeholder = Color3.fromRGB(130, 130, 140),
-    Background = Color3.fromRGB(8, 8, 10),
-    Button = Color3.fromRGB(50, 40, 60),
-    Icon = Color3.fromRGB(190, 180, 255)
+Window:EditOpenButton({
+    Title = "💫 NovaAxis",
+    Icon = "sparkles",
+    CornerRadius = UDim.new(0,16),
+    StrokeThickness = 2,
+    Color = ColorSequence.new( -- gradient
+        Color3.fromHex("FF0F7B"), 
+        Color3.fromHex("F89B29")
+    ),
+    OnlyMobile = false,
+    Enabled = true,
+    Draggable = true,
 })
-WindUI:SetTheme("Nova Neon")
 
-local UISettingsTab = Window:Tab({ Icon = "settings", Title = "UI Settings", EnableScrolling = true })
-local UISettingsSection = UISettingsTab:Section({ Title = "🎨 UI Customization", Icon = "paintbrush", Opened = true })
-UISettingsSection:Paragraph({ Title = "Theme", Content = "Текущая тема: Nova Neon (Accent: RGB 120,80,255). Настройте акцентный цвет ниже." })
-UISettingsSection:Toggle({
-    Title = "Always Show Frame",
-    Default = false,
-    Callback = function(v)
-        if v then Notify({ Title = "UI", Content = "Always Show Frame enabled (placeholder).", Duration = 2 }) 
-        else Notify({ Title = "UI", Content = "Always Show Frame disabled (placeholder).", Duration = 2 }) end
+local Tab = Window:Tab({
+    Title = "Main",
+    Icon = "sparkles", -- optional
+    Locked = false,
+})
+
+local Slider = Tab:Slider({
+    Title = "Money Amount",
+    Desc = "Select amount",
+    Step = 1000, -- Changed step to make sliding smoother
+    Value = {
+        Min = 100000,
+        Max = 1000000000000,
+        Default = 100000
+    },
+    Callback = function(value)
+        print("Slider value: " .. tostring(value))
     end
 })
-UISettingsSection:Colorpicker({
-    Title = "Highlight Color",
-    Default = Color3.fromRGB(120, 80, 255),
-    Callback = function(v)
-        WindUI:AddTheme({
-            Name = "Nova Neon - Custom",
-            Accent = v,
-            Dialog = Color3.fromRGB(18, 18, 20),
-            Outline = Color3.fromRGB(255, 255, 255),
-            Text = Color3.fromRGB(230, 230, 230),
-            Placeholder = Color3.fromRGB(130, 130, 140),
-            Background = Color3.fromRGB(8, 8, 10),
-            Button = Color3.fromRGB(50, 40, 60),
-            Icon = Color3.fromRGB(190, 180, 255)
-        })
-        WindUI:SetTheme("Nova Neon - Custom")
-    end
-})
-UISettingsSection:Button({
-    Title = "Get Theme Name",
+
+local Button = Tab:Button({
+    Title = "Claim Money",
+    Desc = "Claim amount",
+    Locked = false,
     Callback = function()
-        pcall(function() setclipboard("Nova Neon") end)
-        Notify({ Title = "✅ Theme Copied", Content = "Theme name copied to clipboard!", Duration = 3 })
+        local value = Slider.Value
+        print("Button clicked, value: " .. tostring(value))
+        if not value or value < 100000 or value > 1000000000000 then
+            warn("Invalid value: " .. tostring(value))
+            return
+        end
+        local args = {
+            "Money",
+            value
+        }
+        local success, err = pcall(function()
+            local remote = game:GetService("ReplicatedStorage"):FindFirstChild("ClaimReward")
+            if not remote then
+                error("ClaimReward RemoteEvent not found in ReplicatedStorage")
+            end
+            print("Sending to server: Money, " .. tostring(value))
+            remote:FireServer(unpack(args))
+        end)
+        if success then
+            print("Successfully sent to server: Money, " .. tostring(value))
+        else
+            warn("Failed to send to server: " .. tostring(err))
+        end
     end
 })
