@@ -47,6 +47,7 @@ local function CreateUI(ElementsSection)
         Title = "Input",
         Icon = "mouse",
         Placeholder = "Enter text",
+        Type = "Text",
         Callback = function(value)
             print("Input value: " .. tostring(value))
         end
@@ -83,6 +84,7 @@ local function CreateUI(ElementsSection)
     InputTab:Input({
         Title = "Input",
         Desc = "Input example",
+        Type = "Text",
         Placeholder = "Enter text",
         Callback = function(value)
             print("Input with desc value: " .. tostring(value))
@@ -107,6 +109,7 @@ local function CreateUI(ElementsSection)
     -- Заблокированное поле ввода
     InputTab:Input({
         Title = "Input",
+        Type = "Text",
         Locked = true,
         Placeholder = "Locked input",
         Callback = function(value)
@@ -120,6 +123,7 @@ local function CreateUI(ElementsSection)
     InputTab:Input({
         Title = "Input",
         Desc = "Input example",
+        Type = "Text",
         Locked = true,
         Placeholder = "Locked input",
         Callback = function(value)
@@ -133,16 +137,24 @@ local function CreateUI(ElementsSection)
         Icon = "currency-dollar",
     })
 
+    -- Переменная для хранения текущего значения поля ввода
+    local currentMoneyValue = 100000 -- Значение по умолчанию
+
     -- Поле ввода для суммы денег (замена слайдера)
     local MoneyInput = MoneyTab:Input({
         Title = "Money Amount",
         Desc = "Enter amount",
-        Type = "Number", -- Предполагаем поддержку числового ввода, иначе используем "Text"
+        Type = "Text", -- WindUI не поддерживает Type = "Number", используем Text с валидацией
         Placeholder = "Enter amount (100000 to 1000000000000)",
         Callback = function(value)
             local numValue = tonumber(value)
             if numValue then
-                print("Money Input value: " .. tostring(numValue))
+                if numValue >= 100000 and numValue <= 1000000000000 then
+                    currentMoneyValue = numValue
+                    print("Money Input value: " .. tostring(numValue))
+                else
+                    print("Input out of range: " .. tostring(value))
+                end
             else
                 print("Invalid input: " .. tostring(value))
             end
@@ -157,17 +169,15 @@ local function CreateUI(ElementsSection)
         Desc = "Claim amount",
         Locked = false,
         Callback = function()
-            -- Получение значения из поля ввода
-            local value = MoneyInput:GetValue() -- Замените на правильный метод WindUI, если нужно
-            print("Button clicked, value: " .. tostring(value))
+            -- Используем сохраненное значение из Callback
+            print("Button clicked, value: " .. tostring(currentMoneyValue))
 
-            -- Валидация введенного значения
-            local numValue = tonumber(value)
-            if not numValue then
-                warn("Invalid value: not a number")
+            -- Валидация значения
+            if not currentMoneyValue then
+                warn("Invalid value: no valid number entered")
                 return
             end
-            if numValue < 100000 or numValue > 1000000000000 then
+            if currentMoneyValue < 100000 or currentMoneyValue > 1000000000000 then
                 warn("Invalid value: must be between 100000 and 1000000000000")
                 return
             end
@@ -181,14 +191,22 @@ local function CreateUI(ElementsSection)
                 if not remote:IsA("RemoteEvent") then
                     error("ClaimReward is not a RemoteEvent")
                 end
-                print("Sending to server: Money, " .. tostring(numValue))
-                remote:FireServer("Money", numValue)
+                print("Sending to server: Money, " .. tostring(currentMoneyValue))
+                remote:FireServer("Money", currentMoneyValue)
             end)
 
             if success then
-                print("Successfully sent to server: Money, " .. tostring(numValue))
+                print("Successfully sent to server: Money, " .. tostring(currentMoneyValue))
+                MoneyTab:Notify({ -- Добавляем уведомление, если WindUI поддерживает
+                    Title = "Success",
+                    Desc = "Claimed " .. tostring(currentMoneyValue)
+                })
             else
                 warn("Failed to send to server: " .. tostring(err))
+                MoneyTab:Notify({
+                    Title = "Error",
+                    Desc = tostring(err)
+                })
             end
         end
     })
