@@ -1,3 +1,7 @@
+-- ============================
+-- 💫 NovaAxis — Auto Collect + Utility Hub
+-- ============================
+
 -- Load WindUI
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
@@ -55,7 +59,75 @@ local UtilityTab = Window:Tab({
     Locked = false,
 })
 
--- WalkSpeed
+----------------------------------------------------------
+-- 🔹 AUTO COLLECT SYSTEM
+----------------------------------------------------------
+local autoCollect = false
+local autoCollectThread
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local baseFolder = workspace:WaitForChild("Player Bases")
+
+local function collectAllSlots()
+    local playerBase = baseFolder:FindFirstChild(player.Name .. "'s Base")
+    if not playerBase then
+        warn("⚠️ Player base not found!")
+        return
+    end
+
+    local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Base:CollectSlot")
+
+    for floorIndex = 1, 3 do
+        local floor = playerBase:FindFirstChild("Floor" .. floorIndex)
+        if floor then
+            for slotIndex = 1, 30 do
+                local slot = floor:FindFirstChild("Slot" .. slotIndex)
+                if slot then
+                    remote:FireServer(slot)
+                    task.wait(0.1)
+                end
+            end
+        end
+    end
+end
+
+MainTab:Toggle({
+    Title = "Auto Collect Slots",
+    Description = "Automatically collects all slots from all floors",
+    Icon = "database",
+    Default = false,
+    Callback = function(state)
+        autoCollect = state
+        if autoCollect then
+            WindUI:Notify({
+                Title = "✅ Auto Collect Enabled",
+                Content = "Collecting slots every 5 seconds.",
+                Duration = 3,
+                Icon = "sparkles"
+            })
+            autoCollectThread = task.spawn(function()
+                while autoCollect do
+                    collectAllSlots()
+                    task.wait(5)
+                end
+            end)
+        else
+            WindUI:Notify({
+                Title = "⛔ Auto Collect Disabled",
+                Content = "Stopped collecting slots.",
+                Duration = 3,
+                Icon = "x"
+            })
+            autoCollect = false
+        end
+    end
+})
+
+----------------------------------------------------------
+-- 🔹 WALK SPEED SLIDER
+----------------------------------------------------------
 UtilityTab:Slider({
     Title = "WalkSpeed", 
     Description = "Adjust your walking speed (16 - 100)",
@@ -73,7 +145,9 @@ UtilityTab:Slider({
     end
 })
 
--- Noclip
+----------------------------------------------------------
+-- 🔹 NOCLIP
+----------------------------------------------------------
 local noclip = false
 local noclipConnection
 
@@ -109,7 +183,9 @@ UtilityTab:Toggle({
     end
 })
 
--- Infinite Jump
+----------------------------------------------------------
+-- 🔹 INFINITE JUMP
+----------------------------------------------------------
 local infiniteJump = false
 local userInputService = game:GetService("UserInputService")
 
@@ -132,7 +208,9 @@ userInputService.JumpRequest:Connect(function()
     end
 end)
 
--- FPS Boost
+----------------------------------------------------------
+-- 🔹 FPS BOOST
+----------------------------------------------------------
 UtilityTab:Button({
     Title = "FPS Boost",
     Description = "Optimize game for better performance",
@@ -182,7 +260,7 @@ UtilityTab:Button({
 })
 
 ----------------------------------------------------------
--- 🔹 INFORMATION TAB — Discord Button Only
+-- 🔹 INFORMATION TAB — Discord Button
 ----------------------------------------------------------
 local InfoTab = Window:Tab({
     Title = "Information",
