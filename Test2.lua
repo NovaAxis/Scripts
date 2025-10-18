@@ -1,20 +1,23 @@
+-- Загрузка WindUI
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
+-- Создание окна
 local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis",
     Icon = "sparkles", -- lucide icon. optional
     Author = "NovaAxis", -- optional
     BackgroundImageTransparency = 0.45,
-        User = {
+    User = {
         Enabled = true,
         Anonymous = false,
     },
 })
 
+-- Кастомизация кнопки открытия
 Window:EditOpenButton({
     Title = "💫 NovaAxis",
     Icon = "sparkles",
-    CornerRadius = UDim.new(0,16),
+    CornerRadius = UDim.new(0, 16),
     StrokeThickness = 2,
     Color = ColorSequence.new( -- gradient
         Color3.fromHex("FF0F7B"), 
@@ -25,10 +28,17 @@ Window:EditOpenButton({
     Draggable = true,
 })
 
+-- Создание вкладки "Main"
 local Tab = Window:Tab({
     Title = "Main",
     Icon = "sparkles", -- optional
     Locked = false,
+})
+
+-- Создание секции внутри вкладки "Main"
+local ElementsSection = Tab:Section({
+    Title = "Elements",
+    Size = UDim2.new(1, 0, 0, 300) -- Размер секции
 })
 
 -- Предполагается, что код находится в локальном скрипте Roblox
@@ -211,3 +221,6 @@ local function CreateUI(ElementsSection)
         end
     })
 end
+
+-- Вызов функции CreateUI с ElementsSection
+CreateUI(ElementsSection)
