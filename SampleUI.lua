@@ -132,27 +132,24 @@ userInputService.JumpRequest:Connect(function()
     end
 end)
 
--- FPS Boost Button
+-- FPS Boost
 UtilityTab:Button({
     Title = "FPS Boost",
     Description = "Optimize game for better performance",
+    Icon = "gauge",
     Callback = function()
-        -- Lower graphic settings and remove unnecessary effects
         for _, v in pairs(workspace:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.Material = Enum.Material.SmoothPlastic
                 v.Reflectance = 0
-            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
                 v.Enabled = false
             elseif v:IsA("Explosion") then
                 v.BlastPressure = 0
                 v.BlastRadius = 0
-            elseif v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
-                v.Enabled = false
             end
         end
 
-        -- Lighting optimization
         local lighting = game:GetService("Lighting")
         lighting.GlobalShadows = false
         lighting.FogEnd = 1e10
@@ -160,7 +157,6 @@ UtilityTab:Button({
         lighting.EnvironmentDiffuseScale = 0
         lighting.EnvironmentSpecularScale = 0
 
-        -- Reduce terrain details
         local terrain = workspace:FindFirstChildOfClass("Terrain")
         if terrain then
             terrain.WaterWaveSize = 0
@@ -169,16 +165,18 @@ UtilityTab:Button({
             terrain.WaterTransparency = 1
         end
 
-        -- Remove textures
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Decal") or obj:IsA("Texture") then
                 obj.Transparency = 1
             end
         end
 
-        -- Lower render settings
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-
-        print("✅ FPS Boost applied! Game performance optimized.")
+        WindUI:Notify({
+            Title = "✅ FPS Boost",
+            Content = "Game performance optimized successfully!",
+            Duration = 3,
+            Icon = "gauge"
+        })
     end
 })
