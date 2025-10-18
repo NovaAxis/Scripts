@@ -55,8 +55,7 @@ local Tab = Window:Tab({
     Locked = false,
 })
 
-do
-    local InviteCode = "ftgs-development-hub-1300692552005189632"
+local InviteCode = "ftgs-development-hub-1300692552005189632"
     local DiscordAPI = "https://discord.com/api/v10/invites/" .. InviteCode .. "?with_counts=true&with_expiration=true"
 
     local Response = game:GetService("HttpService"):JSONDecode(WindUI.Creator.Request({
@@ -88,7 +87,7 @@ do
                     Title = "Copy link",
                     Icon = "link",
                     Callback = function()
-                        setclipboard("https://discord.gg/" .. InviteCode)
+                        setclipboard("https://discord.gg/Eg98P4wf2V" .. InviteCode)
                     end
                 }
             }
