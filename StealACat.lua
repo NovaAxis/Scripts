@@ -1,5 +1,5 @@
 -- ============================
--- 💫 NovaAxis — Auto Collect + Utility Hub (Final)
+-- 💫 NovaAxis — Auto Collect + Auto Lock + Utility Hub + Info Tab
 -- ============================
 
 -- Load WindUI
@@ -46,7 +46,9 @@ WindUI:AddTheme({
 })
 WindUI:SetTheme("Nova Neon")
 
--- Tabs
+----------------------------------------------------------
+-- 🔹 TABS
+----------------------------------------------------------
 local MainTab = Window:Tab({
     Title = "Main",
     Icon = "sparkles",
@@ -59,25 +61,30 @@ local UtilityTab = Window:Tab({
     Locked = false,
 })
 
-----------------------------------------------------------
--- 🔹 AUTO COLLECT SYSTEM
-----------------------------------------------------------
-local autoCollect = false
-local autoCollectThread
-local collectDelay = 10 -- default delay (seconds)
+local InfoTab = Window:Tab({
+    Title = "Information",
+    Icon = "info",
+    Locked = false,
+})
 
+----------------------------------------------------------
+-- 🔹 VARIABLES
+----------------------------------------------------------
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local baseFolder = workspace:WaitForChild("Player Bases")
 
+----------------------------------------------------------
+-- 🔹 AUTO COLLECT
+----------------------------------------------------------
+local autoCollect = false
+local collectDelay = 10
+local autoCollectThread
+
 local function collectAllSlots()
     local playerBase = baseFolder:FindFirstChild(player.Name .. "'s Base")
-    if not playerBase then
-        warn("⚠️ Player base not found!")
-        return
-    end
-
+    if not playerBase then return end
     local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Base:CollectSlot")
 
     for floorIndex = 1, 3 do
@@ -94,7 +101,6 @@ local function collectAllSlots()
     end
 end
 
--- 🔘 Toggle Auto Collect
 MainTab:Toggle({
     Title = "Auto Collect Slots",
     Description = "Automatically collects all slots from all floors",
@@ -102,10 +108,10 @@ MainTab:Toggle({
     Default = false,
     Callback = function(state)
         autoCollect = state
-        if autoCollect then
+        if state then
             WindUI:Notify({
                 Title = "✅ Auto Collect Enabled",
-                Content = "Collecting slots every " .. collectDelay .. " seconds.",
+                Content = "Collecting every " .. collectDelay .. " seconds.",
                 Duration = 3,
                 Icon = "sparkles"
             })
@@ -116,21 +122,20 @@ MainTab:Toggle({
                 end
             end)
         else
+            autoCollect = false
             WindUI:Notify({
                 Title = "⛔ Auto Collect Disabled",
-                Content = "Stopped collecting slots.",
+                Content = "Stopped collecting.",
                 Duration = 3,
                 Icon = "x"
             })
-            autoCollect = false
         end
     end
 })
 
--- ⏱️ Slider — Delay control
 MainTab:Slider({
-    Title = "Auto Collect Delay (seconds)",
-    Description = "Adjust how often slots will be collected (10–30 sec)",
+    Title = "Auto Collect Delay",
+    Description = "Delay between collections (10–30 sec)",
     Icon = "clock",
     Value = {
         Min = 10,
@@ -141,17 +146,16 @@ MainTab:Slider({
         collectDelay = value
         WindUI:Notify({
             Title = "⏱️ Delay Updated",
-            Content = "New delay: " .. value .. " seconds",
+            Content = "Now collecting every " .. value .. " seconds.",
             Duration = 2,
             Icon = "clock"
         })
     end
 })
 
--- 🧩 Manual Collect Once Button
 MainTab:Button({
     Title = "Collect Once",
-    Description = "Collects all slots right now (no loop)",
+    Description = "Instantly collects all slots one time",
     Icon = "zap",
     Callback = function()
         collectAllSlots()
@@ -165,31 +169,109 @@ MainTab:Button({
 })
 
 ----------------------------------------------------------
--- 🔹 WALK SPEED SLIDER
+-- 🔹 AUTO LOCK BASE
 ----------------------------------------------------------
-UtilityTab:Slider({
-    Title = "WalkSpeed", 
-    Description = "Adjust your walking speed (16 - 100)",
-    Icon = "activity",
-    Value = {
-        Min = 16,
-        Max = 100,
-        Default = 16,
-    },
-    Callback = function(value)
-        local player = game.Players.LocalPlayer
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = value
+local autoLock = false
+local lockDelay = 60
+local autoLockThread
+
+local function lockBase()
+    local playerBase = baseFolder:FindFirstChild(player.Name .. "'s Base")
+    if not playerBase then return end
+    local floor1 = playerBase:FindFirstChild("Floor1")
+    if not floor1 then return end
+    local locker = floor1:FindFirstChild("Locker")
+    if not locker then return end
+
+    local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Base:Lock")
+    remote:FireServer(locker)
+end
+
+MainTab:Toggle({
+    Title = "Auto Lock Base",
+    Description = "Automatically locks your base",
+    Icon = "lock",
+    Default = false,
+    Callback = function(state)
+        autoLock = state
+        if state then
+            WindUI:Notify({
+                Title = "🔒 Auto Lock Enabled",
+                Content = "Locking every " .. lockDelay .. " seconds.",
+                Duration = 3,
+                Icon = "lock"
+            })
+            autoLockThread = task.spawn(function()
+                while autoLock do
+                    lockBase()
+                    task.wait(lockDelay)
+                end
+            end)
+        else
+            autoLock = false
+            WindUI:Notify({
+                Title = "🔓 Auto Lock Disabled",
+                Content = "Stopped auto-locking.",
+                Duration = 3,
+                Icon = "unlock"
+            })
         end
     end
 })
 
+MainTab:Slider({
+    Title = "Auto Lock Delay",
+    Description = "Time between locking base (60–160 sec)",
+    Icon = "timer",
+    Value = {
+        Min = 60,
+        Max = 160,
+        Default = 60,
+    },
+    Callback = function(value)
+        lockDelay = value
+        WindUI:Notify({
+            Title = "🕒 Lock Delay Updated",
+            Content = "Now locking every " .. value .. " seconds.",
+            Duration = 2,
+            Icon = "clock"
+        })
+    end
+})
+
+MainTab:Button({
+    Title = "Lock Base Now",
+    Description = "Manually lock your base instantly",
+    Icon = "shield",
+    Callback = function()
+        lockBase()
+        WindUI:Notify({
+            Title = "🔐 Base Locked",
+            Content = "Your base has been locked manually!",
+            Duration = 2,
+            Icon = "check"
+        })
+    end
+})
+
 ----------------------------------------------------------
--- 🔹 NOCLIP
+-- 🔹 UTILITY FEATURES
 ----------------------------------------------------------
+UtilityTab:Slider({
+    Title = "WalkSpeed", 
+    Description = "Adjust walk speed (16–100)",
+    Icon = "activity",
+    Value = { Min = 16, Max = 100, Default = 16 },
+    Callback = function(value)
+        local char = player.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = value
+        end
+    end
+})
+
 local noclip = false
 local noclipConnection
-
 UtilityTab:Toggle({
     Title = "Noclip",
     Description = "Toggle wall collision on/off",
@@ -197,15 +279,12 @@ UtilityTab:Toggle({
     Default = false,
     Callback = function(state)
         noclip = state
-        local char = game.Players.LocalPlayer.Character
+        local char = player.Character
         if not char then return end
-
-        if noclip then
+        if state then
             noclipConnection = game:GetService("RunService").Stepped:Connect(function()
                 for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+                    if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end)
         else
@@ -214,45 +293,34 @@ UtilityTab:Toggle({
                 noclipConnection = nil
             end
             for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+                if part:IsA("BasePart") then part.CanCollide = true end
             end
         end
     end
 })
 
-----------------------------------------------------------
--- 🔹 INFINITE JUMP
-----------------------------------------------------------
 local infiniteJump = false
-local userInputService = game:GetService("UserInputService")
-
+local UIS = game:GetService("UserInputService")
 UtilityTab:Toggle({
     Title = "Infinite Jump",
-    Description = "Jump infinitely while in the air",
+    Description = "Jump infinitely while in air",
     Icon = "arrow-up",
     Default = false,
     Callback = function(state)
         infiniteJump = state
     end
 })
-
-userInputService.JumpRequest:Connect(function()
+UIS.JumpRequest:Connect(function()
     if infiniteJump then
-        local player = game.Players.LocalPlayer
         if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
             player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
         end
     end
 end)
 
-----------------------------------------------------------
--- 🔹 FPS BOOST
-----------------------------------------------------------
 UtilityTab:Button({
     Title = "FPS Boost",
-    Description = "Optimize game for better performance",
+    Description = "Optimize game performance",
     Icon = "gauge",
     Callback = function()
         for _, v in pairs(workspace:GetDescendants()) do
@@ -261,37 +329,12 @@ UtilityTab:Button({
                 v.Reflectance = 0
             elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
                 v.Enabled = false
-            elseif v:IsA("Explosion") then
-                v.BlastPressure = 0
-                v.BlastRadius = 0
             end
         end
 
-        local lighting = game:GetService("Lighting")
-        lighting.GlobalShadows = false
-        lighting.FogEnd = 1e10
-        lighting.Brightness = 1
-        lighting.EnvironmentDiffuseScale = 0
-        lighting.EnvironmentSpecularScale = 0
-
-        local terrain = workspace:FindFirstChildOfClass("Terrain")
-        if terrain then
-            terrain.WaterWaveSize = 0
-            terrain.WaterWaveSpeed = 0
-            terrain.WaterReflectance = 0
-            terrain.WaterTransparency = 1
-        end
-
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Decal") or obj:IsA("Texture") then
-                obj.Transparency = 1
-            end
-        end
-
-        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
         WindUI:Notify({
             Title = "✅ FPS Boost",
-            Content = "Game performance optimized successfully!",
+            Content = "Game performance improved!",
             Duration = 3,
             Icon = "gauge"
         })
@@ -301,12 +344,6 @@ UtilityTab:Button({
 ----------------------------------------------------------
 -- 🔹 INFORMATION TAB — Discord Button
 ----------------------------------------------------------
-local InfoTab = Window:Tab({
-    Title = "Information",
-    Icon = "info",
-    Locked = false,
-})
-
 local InfoSection = InfoTab:Section({
     Title = "💫 NovaAxis Hub",
     Icon = "sparkles",
