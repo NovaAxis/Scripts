@@ -110,6 +110,7 @@ local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/rel
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
 
 -- ============================
 -- Player
@@ -140,7 +141,7 @@ local isRunning = false
 local promptTimeout = 5
 
 -- ============================
--- Instant Steal Functions
+-- Improved Instant Steal Functions
 -- ============================
 local function getAnyBasePart(model)
     if not model then return nil end
@@ -161,10 +162,10 @@ local function findPlayerBase()
 
     for _, base in ipairs(basesFolder:GetChildren()) do
         if base:IsA("Model") then
-            local config = base:FindFirstChild("Configuration") or base:FindFirstChild("Configurationsa")
+            local config = base:FindFirstChild("Configuration") or base:FindFirstChild("Configurationsa") or base:FindFirstChild("Config")
             if config then
-                local playerValue = config:FindFirstChild("Player")
-                if playerValue and (playerValue.Value == player or playerValue.Value == player.Name) then
+                local playerValue = config:FindFirstChild("Player") or config:FindFirstChild("PlayerName") or config:FindFirstChild("Owner")
+                if playerValue and (playerValue.Value == player or playerValue.Value == player.Name or tostring(playerValue.Value):lower() == player.Name:lower()) then
                     return base
                 end
             end
@@ -179,16 +180,27 @@ local function findTargetFemboy(playerBase)
 
     for _, base in ipairs(basesFolder:GetChildren()) do
         if base:IsA("Model") and base ~= playerBase then
+            -- Check slots first
             local slots = base:FindFirstChild("Slots")
             if slots then
                 for _, slot in ipairs(slots:GetChildren()) do
                     for _, model in ipairs(slot:GetChildren()) do
                         if model:IsA("Model") then
                             local modelName = model.Name
-                            if (type(modelName) == "string" and modelName:lower():find("femboy")) or TARGET_NAMES[modelName] then
+                            if (type(modelName) == "string" and (modelName:lower():find("femboy") or modelName:lower():find("astolfo") or modelName:lower():find("venti"))) or TARGET_NAMES[modelName] then
                                 return model, base
                             end
                         end
+                    end
+                end
+            end
+            
+            -- Also check direct children of base
+            for _, model in ipairs(base:GetChildren()) do
+                if model:IsA("Model") then
+                    local modelName = model.Name
+                    if (type(modelName) == "string" and (modelName:lower():find("femboy") or modelName:lower():find("astolfo") or modelName:lower():find("venti"))) or TARGET_NAMES[modelName] then
+                        return model, base
                     end
                 end
             end
@@ -197,21 +209,37 @@ local function findTargetFemboy(playerBase)
     return nil, nil
 end
 
-local function teleportCharacterToPosition(position)
+local function smoothTeleport(position)
     local character = player.Character
     if not character then return false end
 
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return false end
 
+    -- Stop any movement
     pcall(function()
         humanoidRootPart.Velocity = Vector3.zero
         humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+        humanoidRootPart.RotVelocity = Vector3.zero
+        humanoidRootPart.AssemblyAngularVelocity = Vector3.zero
     end)
 
+    -- Smooth teleport with multiple steps
+    local currentPos = humanoidRootPart.Position
+    local steps = 5
+    local stepWait = 0.05
+    
+    for i = 1, steps do
+        local lerpPos = currentPos:Lerp(position, i/steps)
+        humanoidRootPart.CFrame = CFrame.new(lerpPos)
+        task.wait(stepWait)
+    end
+
+    -- Final precise positioning
     humanoidRootPart.CFrame = CFrame.new(position)
     RunService.Heartbeat:Wait()
-
+    
+    -- Ensure no velocity
     pcall(function()
         humanoidRootPart.Velocity = Vector3.zero
         humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
@@ -220,62 +248,144 @@ local function teleportCharacterToPosition(position)
     return true
 end
 
-local function findProximityPromptInModel(rootModel, originPosition, maxDistance)
-    local bestPrompt, bestDistance
-    maxDistance = maxDistance or 20
+local function findBestProximityPrompt(rootModel, originPosition, maxDistance)
+    local bestPrompt, bestDistance = nil, math.huge
+    maxDistance = maxDistance or 25
 
     for _, descendant in ipairs(rootModel:GetDescendants()) do
         if descendant:IsA("ProximityPrompt") and descendant.Enabled then
             local part = descendant.Parent
             if part and part:IsA("BasePart") then
                 local distance = (part.Position - originPosition).Magnitude
-                if distance <= maxDistance and (not bestDistance or distance < bestDistance) then
+                if distance <= maxDistance and distance < bestDistance then
                     bestPrompt = descendant
                     bestDistance = distance
                 end
             end
         end
     end
+    
+    -- If no prompt found in target model, search in the entire base
+    if not bestPrompt then
+        local base = rootModel:FindFirstAncestorOfClass("Model")
+        if base then
+            for _, descendant in ipairs(base:GetDescendants()) do
+                if descendant:IsA("ProximityPrompt") and descendant.Enabled then
+                    local part = descendant.Parent
+                    if part and part:IsA("BasePart") then
+                        local distance = (part.Position - originPosition).Magnitude
+                        if distance <= maxDistance and distance < bestDistance then
+                            bestPrompt = descendant
+                            bestDistance = distance
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
     return bestPrompt
 end
 
-local function activateProximityPromptWithTimeout(prompt, timeout)
+local function activateProximityPromptAdvanced(prompt, timeout)
     local success = false
     local errorMessage = nil
+    local attempts = 0
+    local maxAttempts = 3
 
-    local thread = task.spawn(function()
-        local result, err = pcall(function()
-            if prompt and prompt:IsA("ProximityPrompt") then
-                prompt:InputHoldBegin()
-                local holdDuration = prompt.HoldDuration or 0.5
-                task.wait(holdDuration)
-                prompt:InputHoldEnd()
-
-                local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
-                if remoteEvent then
-                    pcall(function() remoteEvent:FireServer() end)
+    while attempts < maxAttempts and not success do
+        attempts += 1
+        
+        local thread = task.spawn(function()
+            local result, err = pcall(function()
+                if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled then
+                    -- Fire the prompt using different methods
+                    local holdDuration = prompt.HoldDuration or 0.5
+                    
+                    -- Method 1: Direct fire
+                    if prompt:IsA("ProximityPrompt") then
+                        fireproximityprompt(prompt)
+                        task.wait(0.1)
+                    end
+                    
+                    -- Method 2: Input hold simulation
+                    prompt:InputHoldBegin()
+                    task.wait(holdDuration + 0.1) -- Slightly longer to ensure activation
+                    prompt:InputHoldEnd()
+                    
+                    -- Method 3: Remote event if exists
+                    local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
+                    if remoteEvent then
+                        pcall(function() 
+                            remoteEvent:FireServer()
+                            task.wait(0.1)
+                        end)
+                    end
+                    
+                    -- Method 4: Try to find and fire any related remote events in parent
+                    local parent = prompt.Parent
+                    if parent then
+                        for _, obj in ipairs(parent:GetDescendants()) do
+                            if obj:IsA("RemoteEvent") and obj.Name:lower():find("prompt") then
+                                pcall(function() obj:FireServer() end)
+                            end
+                        end
+                    end
+                    
+                    success = true
+                else
+                    error("Invalid or disabled ProximityPrompt")
                 end
-                success = true
-            else
-                error("Object is not a ProximityPrompt")
+            end)
+
+            if not result then
+                errorMessage = err
             end
         end)
 
-        if not result then
-            errorMessage = err
+        local startTime = tick()
+        while not success and (tick() - startTime) < timeout do
+            task.wait(0.1)
         end
-    end)
 
-    local startTime = tick()
-    while not success and (tick() - startTime) < timeout do
-        task.wait(0.1)
+        if not success then
+            task.wait(0.5) -- Wait before retry
+        end
     end
 
     if not success then
-        return false, "Timeout: Prompt not activated in " .. timeout .. " seconds"
+        return false, errorMessage or "Failed to activate prompt after " .. attempts .. " attempts"
     end
 
-    return success, errorMessage
+    return true, nil
+end
+
+local function getSpawnPosition(playerBase)
+    local spawn = playerBase:FindFirstChild("Spawn") or playerBase:FindFirstChild("SpawnPoint")
+    if spawn then
+        if spawn:IsA("BasePart") then
+            return spawn.Position
+        else
+            local basePart = spawn:FindFirstChild("Base") or spawn:FindFirstChild("Part") or spawn:FindFirstChild("Position")
+            if basePart and basePart:IsA("BasePart") then
+                return basePart.Position
+            end
+        end
+    end
+    
+    -- Fallback: find any part in the base that might be a spawn
+    for _, part in ipairs(playerBase:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name:lower():find("spawn") then
+            return part.Position
+        end
+    end
+    
+    -- Ultimate fallback: use the base's primary part
+    if playerBase.PrimaryPart then
+        return playerBase.PrimaryPart.Position
+    end
+    
+    return nil
 end
 
 local function executeInstantSteal()
@@ -302,6 +412,8 @@ local function executeInstantSteal()
         return
     end
 
+    WindUI:Notify({ Title = "🔍 Searching", Content = "Looking for your base...", Duration = 2, Icon = "search" })
+
     local playerBase = findPlayerBase()
     if not playerBase then
         WindUI:Notify({ Title = "❌ Error", Content = "Your base not found!", Duration = 3, Icon = "x" })
@@ -309,9 +421,11 @@ local function executeInstantSteal()
         return
     end
 
+    WindUI:Notify({ Title = "🎯 Scanning", Content = "Searching for targets...", Duration = 2, Icon = "target" })
+
     local targetModel, targetBase = findTargetFemboy(playerBase)
     if not targetModel then
-        WindUI:Notify({ Title = "❌ Error", Content = "Target not found!", Duration = 3, Icon = "x" })
+        WindUI:Notify({ Title = "❌ Error", Content = "No target femboy found!", Duration = 3, Icon = "x" })
         isRunning = false
         return
     end
@@ -323,16 +437,16 @@ local function executeInstantSteal()
         return
     end
 
-    local targetPosition = targetPart.Position + Vector3.new(0, 3, 0)
+    local targetPosition = targetPart.Position + Vector3.new(0, 3, 2) -- Slightly higher and forward
 
     local savedWalkSpeed = humanoid.WalkSpeed
     local savedJumpPower = humanoid.JumpPower
     humanoid.WalkSpeed = 0
     humanoid.JumpPower = 0
 
-    WindUI:Notify({ Title = "✨ Info", Content = "Teleporting to target...", Duration = 2, Icon = "arrow-right-circle" })
+    WindUI:Notify({ Title = "✨ Teleporting", Content = "Moving to target...", Duration = 2, Icon = "arrow-right-circle" })
 
-    if not teleportCharacterToPosition(targetPosition) then
+    if not smoothTeleport(targetPosition) then
         WindUI:Notify({ Title = "❌ Error", Content = "Teleportation failed!", Duration = 3, Icon = "x" })
         humanoid.WalkSpeed = savedWalkSpeed
         humanoid.JumpPower = savedJumpPower
@@ -340,45 +454,50 @@ local function executeInstantSteal()
         return
     end
 
-    task.wait(0.3)
+    task.wait(0.5) -- Give time for everything to load
 
-    local prompt = findProximityPromptInModel(targetBase or targetModel, targetPosition, 25)
+    WindUI:Notify({ Title = "🔎 Scanning", Content = "Looking for interaction prompt...", Duration = 2, Icon = "search" })
+
+    local prompt = findBestProximityPrompt(targetModel, targetPosition, 30)
+    
+    if not prompt then
+        -- Try searching in the entire base
+        prompt = findBestProximityPrompt(targetBase or targetModel, targetPosition, 30)
+    end
 
     if prompt then
-        WindUI:Notify({ Title = "⏳ Info", Content = "Activating prompt... (" .. promptTimeout .. "s timeout)", Duration = 2, Icon = "clock" })
-        local ok, err = activateProximityPromptWithTimeout(prompt, promptTimeout)
+        WindUI:Notify({ 
+            Title = "⏳ Activating", 
+            Content = "Found prompt! Activating... (" .. promptTimeout .. "s timeout)", 
+            Duration = 2, 
+            Icon = "clock" 
+        })
+        
+        local ok, err = activateProximityPromptAdvanced(prompt, promptTimeout)
 
         if ok then
-            WindUI:Notify({ Title = "✅ Success", Content = "Prompt activated!", Duration = 2, Icon = "check" })
+            WindUI:Notify({ Title = "✅ Success", Content = "Prompt activated successfully!", Duration = 3, Icon = "check" })
             task.wait(1)
         else
-            WindUI:Notify({ Title = "⚠️ Warning", Content = err or "Prompt timeout!", Duration = 3, Icon = "alert-circle" })
+            WindUI:Notify({ Title = "⚠️ Warning", Content = "Prompt issue: " .. (err or "Unknown error"), Duration = 3, Icon = "alert-circle" })
         end
     else
-        WindUI:Notify({ Title = "⚠️ Warning", Content = "Prompt not found!", Duration = 2, Icon = "alert-circle" })
+        WindUI:Notify({ Title = "⚠️ Warning", Content = "No prompt found near target", Duration = 3, Icon = "alert-circle" })
     end
 
-    local spawn = playerBase:FindFirstChild("Spawn")
-    if spawn then
-        local spawnPosition
-
-        if spawn:IsA("BasePart") then
-            spawnPosition = spawn.Position
-        else
-            local basePart = spawn:FindFirstChild("Base")
-            if basePart and basePart:IsA("BasePart") then
-                spawnPosition = basePart.Position
-            end
-        end
-
-        if spawnPosition then
-            WindUI:Notify({ Title = "🏠 Info", Content = "Returning to base...", Duration = 2, Icon = "home" })
-            teleportCharacterToPosition(spawnPosition + Vector3.new(0, 3, 0))
-            task.wait(0.3)
-            WindUI:Notify({ Title = "✅ Success", Content = "Returned successfully!", Duration = 2, Icon = "check" })
-        end
+    -- Return to base
+    WindUI:Notify({ Title = "🏠 Returning", Content = "Going back to your base...", Duration = 2, Icon = "home" })
+    
+    local spawnPosition = getSpawnPosition(playerBase)
+    if spawnPosition then
+        smoothTeleport(spawnPosition + Vector3.new(0, 3, 0))
+        task.wait(0.5)
+        WindUI:Notify({ Title = "✅ Complete", Content = "Successfully returned to base!", Duration = 3, Icon = "check" })
+    else
+        WindUI:Notify({ Title = "⚠️ Notice", Content = "Could not find spawn point, but steal attempt completed", Duration = 3, Icon = "info" })
     end
 
+    -- Restore movement
     humanoid.WalkSpeed = savedWalkSpeed
     humanoid.JumpPower = savedJumpPower
     isRunning = false
