@@ -45,13 +45,19 @@ WindUI:SetTheme("Nova Neon")
 -- Tabs
 local MainTab = Window:Tab({
     Title = "Main",
-    Icon = "sparkles",
+    Icon = "wallet",
     Locked = false,
 })
 
 local UtilityTab = Window:Tab({
     Title = "Utility",
     Icon = "wrench",
+    Locked = false,
+})
+
+local InfoTab = Window:Tab({
+    Title = "Information",
+    Icon = "info",
     Locked = false,
 })
 
@@ -73,6 +79,7 @@ MainTab:Input({
 MainTab:Button({
     Title = "Claim Money",
     Description = "Send a server request with your amount",
+    Icon = "dollar-sign",
     Callback = function()
         if moneyAmount <= 0 then
             warn("⚠️ Please enter a valid amount first!")
@@ -93,6 +100,7 @@ MainTab:Button({
 UtilityTab:Slider({
     Title = "WalkSpeed", 
     Description = "Adjust your walking speed (16 - 100)",
+    Icon = "activity",
     Value = {
         Min = 16,
         Max = 100,
@@ -115,6 +123,7 @@ local noclipConnection
 UtilityTab:Toggle({
     Title = "Noclip",
     Description = "Toggle wall collision on/off",
+    Icon = "box",
     Default = false,
     Callback = function(state)
         noclip = state
@@ -152,6 +161,7 @@ local userInputService = game:GetService("UserInputService")
 UtilityTab:Toggle({
     Title = "Infinite Jump",
     Description = "Jump infinitely while in the air",
+    Icon = "arrow-up",
     Default = false,
     Callback = function(state)
         infiniteJump = state
@@ -173,6 +183,7 @@ end)
 UtilityTab:Button({
     Title = "FPS Boost",
     Description = "Optimize game for better performance",
+    Icon = "zap",
     Callback = function()
         for _, v in pairs(workspace:GetDescendants()) do
             if v:IsA("BasePart") then
@@ -211,5 +222,33 @@ UtilityTab:Button({
 
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
         print("✅ FPS Boost applied! Game performance optimized.")
+    end
+})
+
+----------------------------------------------------------
+-- 🔹 INFORMATION TAB — Discord & Info
+----------------------------------------------------------
+InfoTab:Label({
+    Title = "💫 NovaAxis Information",
+    Description = "All details about this script and community",
+})
+
+InfoTab:Label({
+    Title = "👑 Developer",
+    Description = "Made by NovaAxis Team",
+})
+
+InfoTab:Label({
+    Title = "🪩 Version",
+    Description = "v1.0.0 — Stable Release",
+})
+
+InfoTab:Button({
+    Title = "🌐 Join our Discord",
+    Description = "Join the official NovaAxis Discord server",
+    Icon = "discord",
+    Callback = function()
+        setclipboard("https://discord.gg/Eg98P4wf2V")
+        print("🔗 Discord invite copied to clipboard!")
     end
 })
