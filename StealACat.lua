@@ -64,6 +64,7 @@ local UtilityTab = Window:Tab({
 ----------------------------------------------------------
 local autoCollect = false
 local autoCollectThread
+local collectDelay = 10 -- default delay (seconds)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -103,14 +104,14 @@ MainTab:Toggle({
         if autoCollect then
             WindUI:Notify({
                 Title = "✅ Auto Collect Enabled",
-                Content = "Collecting slots every 5 seconds.",
+                Content = "Collecting slots every " .. collectDelay .. " seconds.",
                 Duration = 3,
                 Icon = "sparkles"
             })
             autoCollectThread = task.spawn(function()
                 while autoCollect do
                     collectAllSlots()
-                    task.wait(5)
+                    task.wait(collectDelay)
                 end
             end)
         else
@@ -122,6 +123,26 @@ MainTab:Toggle({
             })
             autoCollect = false
         end
+    end
+})
+
+MainTab:Slider({
+    Title = "Auto Collect Delay (seconds)",
+    Description = "Adjust the interval between each auto collect (10 - 30 sec)",
+    Icon = "clock",
+    Value = {
+        Min = 10,
+        Max = 30,
+        Default = 10,
+    },
+    Callback = function(value)
+        collectDelay = value
+        WindUI:Notify({
+            Title = "⏱️ Delay Updated",
+            Content = "New delay: " .. value .. " seconds",
+            Duration = 2,
+            Icon = "clock"
+        })
     end
 })
 
