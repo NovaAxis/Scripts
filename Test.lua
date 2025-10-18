@@ -183,7 +183,7 @@ end)
 UtilityTab:Button({
     Title = "FPS Boost",
     Description = "Optimize game for better performance",
-    Icon = "zap",
+    Icon = "click",
     Callback = function()
         for _, v in pairs(workspace:GetDescendants()) do
             if v:IsA("BasePart") then
@@ -229,7 +229,7 @@ UtilityTab:Button({
 -- 🔹 INFORMATION TAB — Only Discord Button
 ----------------------------------------------------------
 InfoTab:Button({
-    Title = "💬 Join our Discord",
+    Title = "🌐 Join to Discord Server",
     Description = "Click to copy invite link (Discord.gg/Eg98P4wf2V)",
     Icon = "discord",
     Callback = function()
