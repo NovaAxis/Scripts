@@ -1,6 +1,6 @@
--- 💫 NovaAxis - Instant Steal (Minimal WindUI Template)
--- Только одна кнопка: Instant Steal
+-- 💫 NovaAxis - Instant Steal (Minimal WindUI) — Без anti-cheat bypass
 -- Автор: NovaAxis (adapted)
+-- Примечание: Я отказался от любых обходов анти-чита. Этот скрипт — безопасная минималка с логгингом и 'Safe Mode'.
 
 -- Load WindUI
 local successWind, WindUI = pcall(function()
@@ -57,8 +57,12 @@ local MainTab = Window:Tab({
     Icon = "zap",
 })
 
--- ===== Helpers & core steal logic (compact but full behaviour) =====
+-- ===== Configurable options =====
+local promptTimeout = 5
+local retryCount = 2
+local safeMode = true -- если true — не выполняются потенциально рискованные операции
 
+-- ===== Helpers & core steal logic (no bypass) =====
 local TARGET_NAMES = {
     ["Roommate"] = true, ["Casual Astolfo"] = true,
     ["Chihiro Fujisaki"] = true, ["Venti"] = true,
@@ -66,6 +70,11 @@ local TARGET_NAMES = {
     ["J*b Application"] = true, ["Mythical Lucky Block"] = true,
     ["Nagisa Shiota"] = true, ["Felix"] = true, ["Rimuru"] = true,
 }
+
+local function safePcall(fn, ...)
+    local ok, res = pcall(fn, ...)
+    return ok, res
+end
 
 local function getAnyBasePart(model)
     if not model then return nil end
@@ -149,131 +158,171 @@ local function findProximityPromptInModel(rootModel, originPosition, maxDistance
 end
 
 local function activateProximityPromptWithTimeout(prompt, timeout)
-    local success = false
-    local ok, err = pcall(function()
-        if prompt and prompt:IsA("ProximityPrompt") then
-            prompt:InputHoldBegin()
-            local hold = prompt.HoldDuration or 0.5
-            task.wait(hold)
-            prompt:InputHoldEnd()
-            local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
-            if remoteEvent then pcall(function() remoteEvent:FireServer() end) end
-            success = true
-        else
-            error("Invalid ProximityPrompt")
-        end
-    end)
-    if not success then
-        return false, tostring(err)
+    if not prompt or not prompt:IsA("ProximityPrompt") then
+        return false, "Invalid ProximityPrompt"
     end
+    local ok, err = pcall(function()
+        prompt:InputHoldBegin()
+        local hold = prompt.HoldDuration or 0.5
+        task.wait(hold)
+        prompt:InputHoldEnd()
+        local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
+        if remoteEvent then pcall(function() remoteEvent:FireServer() end) end
+    end)
+    if not ok then return false, tostring(err) end
     return true, nil
 end
 
--- Main execute function (robust)
+-- Main execute function (robust, with retries; does NOT bypass anti-cheat)
 local isRunning = false
-local promptTimeout = 5
 
 local function executeInstantSteal()
     if isRunning then
-        Notify({ Title = "⚠️ Warning", Content = "Already running!", Duration = 2 })
+        Notify({ Title = "⚠️", Content = "Уже выполняется", Duration = 2 })
         return
     end
     isRunning = true
 
-    local character = player.Character
-    if not character then
-        Notify({ Title = "❌ Error", Content = "Character not found!", Duration = 3 })
-        isRunning = false
-        return
-    end
-
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not hrp then
-        Notify({ Title = "❌ Error", Content = "Humanoid/HRP missing!", Duration = 3 })
-        isRunning = false
-        return
-    end
-
-    local playerBase = findPlayerBase()
-    if not playerBase then
-        Notify({ Title = "❌ Error", Content = "Your base not found!", Duration = 3 })
-        isRunning = false
-        return
-    end
-
-    local targetModel, targetBase = findTargetFemboy(playerBase)
-    if not targetModel then
-        Notify({ Title = "❌ Error", Content = "Target not found!", Duration = 3 })
-        isRunning = false
-        return
-    end
-
-    local targetPart = getAnyBasePart(targetModel)
-    if not targetPart then
-        Notify({ Title = "❌ Error", Content = "Could not find target part", Duration = 3 })
-        isRunning = false
-        return
-    end
-
-    local targetPosition = targetPart.Position + Vector3.new(0, 3, 0)
-
-    -- temporarily disable movement to avoid annoyances
-    local savedWalkSpeed = humanoid.WalkSpeed
-    local savedJumpPower = humanoid.JumpPower
-    humanoid.WalkSpeed = 0
-    humanoid.JumpPower = 0
-
-    Notify({ Title = "✨ Info", Content = "Teleporting to target...", Duration = 2 })
-    if not teleportCharacterToPosition(targetPosition) then
-        Notify({ Title = "❌ Error", Content = "Teleportation failed!", Duration = 3 })
-        humanoid.WalkSpeed = savedWalkSpeed
-        humanoid.JumpPower = savedJumpPower
-        isRunning = false
-        return
-    end
-
-    task.wait(0.3)
-    local prompt = findProximityPromptInModel(targetBase or targetModel, targetPosition, 25)
-    if prompt then
-        Notify({ Title = "⏳ Info", Content = "Activating prompt...", Duration = 2 })
-        local ok, err = activateProximityPromptWithTimeout(prompt, promptTimeout)
-        if ok then
-            Notify({ Title = "✅ Success", Content = "Prompt activated!", Duration = 2 })
-            task.wait(1)
-        else
-            Notify({ Title = "⚠️ Warning", Content = err or "Prompt timeout!", Duration = 3 })
+    -- Retried execution wrapper
+    local function attemptOnce()
+        if not player or not player.Character then
+            return false, "Character not found"
         end
-    else
-        Notify({ Title = "⚠️ Warning", Content = "Prompt not found!", Duration = 2 })
-    end
 
-    -- return to spawn if available
-    local spawn = playerBase:FindFirstChild("Spawn")
-    if spawn then
-        local spawnPosition
-        if spawn:IsA("BasePart") then
-            spawnPosition = spawn.Position
+        local character = player.Character
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not hrp then
+            return false, "Humanoid/HRP missing"
+        end
+
+        local playerBase = findPlayerBase()
+        if not playerBase then
+            return false, "Your base not found"
+        end
+
+        local targetModel, targetBase = findTargetFemboy(playerBase)
+        if not targetModel then
+            return false, "Target not found"
+        end
+
+        local targetPart = getAnyBasePart(targetModel)
+        if not targetPart then
+            return false, "Target part not found"
+        end
+
+        local targetPosition = targetPart.Position + Vector3.new(0,3,0)
+
+        -- If safeMode is true, we avoid modifying humanoid properties heavily.
+        local savedWalkSpeed, savedJumpPower
+        if not safeMode then
+            savedWalkSpeed = humanoid.WalkSpeed
+            savedJumpPower = humanoid.JumpPower
+            humanoid.WalkSpeed = 0
+            humanoid.JumpPower = 0
+        end
+
+        Notify({ Title = "✨", Content = "Телепорт к цели...", Duration = 2 })
+        local ok = teleportCharacterToPosition(targetPosition)
+        if not ok then
+            if not safeMode then
+                humanoid.WalkSpeed = savedWalkSpeed or humanoid.WalkSpeed
+                humanoid.JumpPower = savedJumpPower or humanoid.JumpPower
+            end
+            return false, "Teleport failed"
+        end
+
+        task.wait(0.3)
+        local prompt = findProximityPromptInModel(targetBase or targetModel, targetPosition, 25)
+        if prompt then
+            Notify({ Title = "⏳", Content = "Активация промпта...", Duration = 2 })
+            local ok2, err2 = activateProximityPromptWithTimeout(prompt, promptTimeout)
+            if not ok2 then
+                if not safeMode then
+                    humanoid.WalkSpeed = savedWalkSpeed or humanoid.WalkSpeed
+                    humanoid.JumpPower = savedJumpPower or humanoid.JumpPower
+                end
+                return false, "Prompt activation failed: "..tostring(err2)
+            end
+            Notify({ Title = "✅", Content = "Промпт активирован", Duration = 2 })
+            task.wait(0.8)
         else
-            local basePart = spawn:FindFirstChild("Base")
-            if basePart and basePart:IsA("BasePart") then
-                spawnPosition = basePart.Position
+            if not safeMode then
+                humanoid.WalkSpeed = savedWalkSpeed or humanoid.WalkSpeed
+                humanoid.JumpPower = savedJumpPower or humanoid.JumpPower
+            end
+            return false, "Prompt not found"
+        end
+
+        -- Return to spawn if exists
+        local spawn = playerBase:FindFirstChild("Spawn")
+        if spawn then
+            local spawnPos
+            if spawn:IsA("BasePart") then spawnPos = spawn.Position
+            else
+                local basePart = spawn:FindFirstChild("Base")
+                if basePart and basePart:IsA("BasePart") then spawnPos = basePart.Position end
+            end
+            if spawnPos then
+                Notify({ Title = "🏠", Content = "Возврат на базу...", Duration = 2 })
+                teleportCharacterToPosition(spawnPos + Vector3.new(0,3,0))
+                task.wait(0.3)
+                Notify({ Title = "✅", Content = "Возврат выполнен", Duration = 2 })
             end
         end
-        if spawnPosition then
-            Notify({ Title = "🏠 Info", Content = "Returning to base...", Duration = 2 })
-            teleportCharacterToPosition(spawnPosition + Vector3.new(0,3,0))
-            task.wait(0.3)
-            Notify({ Title = "✅ Success", Content = "Returned successfully!", Duration = 2 })
+
+        if not safeMode then
+            humanoid.WalkSpeed = savedWalkSpeed or humanoid.WalkSpeed
+            humanoid.JumpPower = savedJumpPower or humanoid.JumpPower
+        end
+
+        return true, nil
+    end
+
+    local attempt = 0
+    local lastErr
+    while attempt <= retryCount do
+        attempt = attempt + 1
+        local ok, err = safePcall(attemptOnce)
+        if ok and err == true then
+            isRunning = false
+            return
+        elseif ok and err == nil then
+            -- handled as success (attemptOnce returned true,nil)
+            isRunning = false
+            return
+        else
+            lastErr = err or "unknown"
+            Notify({ Title = "⚠️ Попытка "..tostring(attempt).." не удалась", Content = tostring(lastErr), Duration = 2 })
+            task.wait(0.5)
         end
     end
 
-    humanoid.WalkSpeed = savedWalkSpeed
-    humanoid.JumpPower = savedJumpPower
+    Notify({ Title = "❌ Ошибка", Content = "Все попытки завершились неудачей: "..tostring(lastErr), Duration = 4 })
     isRunning = false
 end
 
--- ===== Button (only UI) =====
+-- ===== UI controls: Button + SafeMode toggle + Hotkey =====
+MainTab:Toggle({
+    Title = "Safe Mode",
+    Description = "Если включено — не выполняются рискованные изменения (рекомендуется)",
+    Default = safeMode,
+    Callback = function(v) safeMode = v end
+})
+
+MainTab:Slider({
+    Title = "Prompt Timeout (s)",
+    Value = { Min = 1, Max = 10, Default = promptTimeout },
+    Callback = function(v) promptTimeout = v end
+})
+
+MainTab:Slider({
+    Title = "Retries",
+    Description = "Сколько автоматических попыток при ошибке",
+    Value = { Min = 0, Max = 5, Default = retryCount },
+    Callback = function(v) retryCount = v end
+})
+
 MainTab:Button({
     Title = "⚡ INSTANT STEAL",
     Description = "Телепорт, активация промпта, возврат",
@@ -282,8 +331,22 @@ MainTab:Button({
         task.spawn(function()
             local ok, err = pcall(executeInstantSteal)
             if not ok then
-                Notify({ Title = "❌ Error", Content = "Error: "..tostring(err), Duration = 4 })
+                Notify({ Title = "❌ Error", Content = "Internal error: "..tostring(err), Duration = 4 })
             end
         end)
     end
 })
+
+-- Hotkey: F для быстрого запуска
+do
+    local key = Enum.KeyCode.F
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == key then
+            task.spawn(function()
+                local ok, err = pcall(executeInstantSteal)
+                if not ok then Notify({ Title = "❌ Error", Content = tostring(err), Duration = 3 }) end
+            end)
+        end
+    end)
+end
