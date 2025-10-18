@@ -137,8 +137,6 @@ local TARGET_NAMES = {
 -- State variables for Instant Steal
 -- ============================
 local isRunning = false
-local autoStealEnabled = false
-local autoStealDelay = 5
 local promptTimeout = 5
 
 -- ============================
@@ -464,58 +462,6 @@ StealSection:Button({
                 WindUI:Notify({ Title = "❌ Error", Content = "Error: " .. tostring(err), Duration = 3, Icon = "x" })
             end
         end)
-    end
-})
-
-StealSection:Toggle({
-    Title = "Enable Auto Steal",
-    Description = "Automatically steal every N seconds",
-    Icon = "repeat",
-    Default = false,
-    Callback = function(value)
-        autoStealEnabled = value
-        if value then
-            WindUI:Notify({ Title = "✅ Auto Steal", Content = "Auto Steal Enabled!", Duration = 2, Icon = "play" })
-            task.spawn(function()
-                while autoStealEnabled do
-                    if not isRunning then
-                        executeInstantSteal()
-                    end
-                    task.wait(autoStealDelay)
-                end
-            end)
-        else
-            WindUI:Notify({ Title = "❌ Auto Steal", Content = "Auto Steal Disabled!", Duration = 2, Icon = "pause" })
-        end
-    end
-})
-
-StealSection:Slider({
-    Title = "Auto Steal Delay (seconds)",
-    Description = "Delay between auto steal attempts",
-    Icon = "clock",
-    Value = {
-        Min = 1,
-        Max = 60,
-        Default = 5,
-    },
-    Callback = function(value)
-        autoStealDelay = value
-    end
-})
-
-StealSection:Slider({
-    Title = "Prompt Timeout (seconds)",
-    Description = "Timeout for proximity prompt activation",
-    Icon = "clock",
-    Value = {
-        Min = 1,
-        Max = 10,
-        Default = 5,
-    },
-    Callback = function(value)
-        promptTimeout = value
-        WindUI:Notify({ Title = "⚙️ Settings", Content = "Timeout set to " .. value .. "s", Duration = 2, Icon = "clock" })
     end
 })
 
