@@ -1,37 +1,63 @@
 -- ============================
--- Anti-Cheat Bypass (запускается перед UI)
+-- Services
 -- ============================
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
 
+-- ============================
+-- Player
+-- ============================
+local player = Players.LocalPlayer
+
+-- ============================
+-- Anti-Cheat Bypass
+-- ============================
 local function SetupKickProtection()
-    local mt = getrawmetatable(game)
-    if not mt then return end
+    local success, mt = pcall(getrawmetatable, game)
+    if not success or not mt then return end
+    
     local oldNamecall = mt.__namecall
+    if not oldNamecall then return end
+    
     if setreadonly then
-        pcall(function() setreadonly(mt, false) end)
+        pcall(setreadonly, mt, false)
+    elseif make_writeable then
+        pcall(make_writeable, mt)
     end
-    if oldNamecall then
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            if method == "Kick" then
-                return nil
-            end
-            return oldNamecall(self, ...)
-        end)
+    
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "Kick" then
+            return nil
+        end
+        return oldNamecall(self, ...)
+    end)
+    
+    if setreadonly then
+        pcall(setreadonly, mt, true)
+    elseif make_readonly then
+        pcall(make_readonly, mt)
     end
 end
 
 local function DisconnectAllConnections(object, signalName)
     if not object then return end
-    local ok, signal = pcall(function() return object[signalName] end)
-    if not ok or not signal then return end
-    local connections = getconnections(signal)
-    if connections then
-        for _, conn in pairs(connections) do
-            if conn and type(conn.Disconnect) == "function" then
-                pcall(function() conn:Disconnect() end)
+    
+    local success, signal = pcall(function() return object[signalName] end)
+    if not success or not signal then return end
+    
+    if getconnections then
+        local connections = getconnections(signal)
+        if connections then
+            for _, conn in pairs(connections) do
+                if conn and typeof(conn.Disable) == "function" then
+                    pcall(conn.Disable, conn)
+                elseif conn and typeof(conn.Disconnect) == "function" then
+                    pcall(conn.Disconnect, conn)
+                end
             end
         end
     end
@@ -39,37 +65,40 @@ end
 
 local function ExecuteBypass()
     SetupKickProtection()
-
+    
     repeat task.wait() until player
     repeat task.wait() until player.Character
-
+    
     local character = player.Character
-
+    
     if character then
-        local humanoid = character:FindFirstChild("Humanoid")
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             DisconnectAllConnections(humanoid, "StateChanged")
             DisconnectAllConnections(humanoid, "Changed")
+            DisconnectAllConnections(humanoid, "Died")
         end
-
+        
         local rootPart = character:FindFirstChild("HumanoidRootPart")
         if rootPart then
             DisconnectAllConnections(rootPart, "ChildAdded")
+            DisconnectAllConnections(rootPart, "Changed")
         end
-
+        
         DisconnectAllConnections(character, "ChildRemoved")
+        DisconnectAllConnections(character, "DescendantRemoving")
     end
-
+    
     local backpack = player:FindFirstChild("Backpack")
     if backpack then
         DisconnectAllConnections(backpack, "ChildAdded")
     end
-
-    local camera = workspace.CurrentCamera
+    
+    local camera = Workspace.CurrentCamera
     if camera then
         DisconnectAllConnections(camera, "ChildAdded")
     end
-
+    
     local antiScript = script.Parent and script.Parent:FindFirstChild("Anti")
     if antiScript then
         pcall(function()
@@ -77,17 +106,21 @@ local function ExecuteBypass()
             antiScript:Destroy()
         end)
     end
-
+    
     task.spawn(function()
         while task.wait(5) do
             if script.Parent then
                 local newAnti = script.Parent:FindFirstChild("Anti")
                 if newAnti then
-                    pcall(function() newAnti.Disabled = true; newAnti:Destroy() end)
+                    pcall(function() 
+                        newAnti.Disabled = true
+                        newAnti:Destroy() 
+                    end)
                 end
             end
+            
             if character and character.Parent then
-                local currentHumanoid = character:FindFirstChild("Humanoid")
+                local currentHumanoid = character:FindFirstChildOfClass("Humanoid")
                 if currentHumanoid then
                     DisconnectAllConnections(currentHumanoid, "StateChanged")
                 end
@@ -96,26 +129,12 @@ local function ExecuteBypass()
     end)
 end
 
--- Запускаем анти-чит байпас
 pcall(ExecuteBypass)
 
 -- ============================
 -- Load WindUI
 -- ============================
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
-
--- ============================
--- Services
--- ============================
-local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
-local TweenService = game:GetService("TweenService")
-
--- ============================
--- Player
--- ============================
-local player = Players.LocalPlayer
 
 -- ============================
 -- Target Names
@@ -126,7 +145,7 @@ local TARGET_NAMES = {
     ["Chihiro Fujisaki"] = true,
     ["Venti"] = true,
     ["Gasper"] = true,
-    ["Saika"] = true,   
+    ["Saika"] = true,
     ["J*b Application"] = true,
     ["Mythical Lucky Block"] = true,
     ["Nagisa Shiota"] = true,
@@ -135,30 +154,36 @@ local TARGET_NAMES = {
 }
 
 -- ============================
--- State variables for Instant Steal
+-- State Variables
 -- ============================
 local isRunning = false
+local noclip = false
+local noclipConnection = nil
+local infiniteJump = false
 
 -- ============================
--- Improved Instant Steal Functions
+-- Utility Functions
 -- ============================
 local function getAnyBasePart(model)
     if not model then return nil end
+    
     if model.PrimaryPart and model.PrimaryPart:IsA("BasePart") then
         return model.PrimaryPart
     end
+    
     for _, descendant in ipairs(model:GetDescendants()) do
         if descendant:IsA("BasePart") then
             return descendant
         end
     end
+    
     return nil
 end
 
 local function findPlayerBase()
     local basesFolder = Workspace:FindFirstChild("Bases")
     if not basesFolder then return nil end
-
+    
     for _, base in ipairs(basesFolder:GetChildren()) do
         if base:IsA("Model") then
             local config = base:FindFirstChild("Configuration") or base:FindFirstChild("Configurationsa")
@@ -170,13 +195,14 @@ local function findPlayerBase()
             end
         end
     end
+    
     return nil
 end
 
 local function findTargetFemboy(playerBase)
     local basesFolder = Workspace:FindFirstChild("Bases")
     if not basesFolder then return nil, nil end
-
+    
     for _, base in ipairs(basesFolder:GetChildren()) do
         if base:IsA("Model") and base ~= playerBase then
             local slots = base:FindFirstChild("Slots")
@@ -194,121 +220,65 @@ local function findTargetFemboy(playerBase)
             end
         end
     end
+    
     return nil, nil
 end
 
-local function smoothTeleport(position)
+local function teleportCharacterToPosition(position)
     local character = player.Character
     if not character then return false end
-
+    
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return false end
-
-    -- Плавный телепорт с твином
-    local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(humanoidRootPart, tweenInfo, {CFrame = CFrame.new(position)})
     
     pcall(function()
         humanoidRootPart.Velocity = Vector3.zero
         humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+        humanoidRootPart.RotVelocity = Vector3.zero
     end)
     
-    tween:Play()
-    tween.Completed:Wait()
+    humanoidRootPart.CFrame = CFrame.new(position)
+    RunService.Heartbeat:Wait()
     
     pcall(function()
         humanoidRootPart.Velocity = Vector3.zero
         humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+        humanoidRootPart.RotVelocity = Vector3.zero
     end)
-
+    
     return true
 end
 
-local function getAllProximityPromptsInRange(originPosition, maxDistance)
-    local prompts = {}
-    maxDistance = maxDistance or 30
+local function findProximityPromptInModel(rootModel, originPosition, maxDistance)
+    local bestPrompt, bestDistance
+    maxDistance = maxDistance or 20
     
-    -- Ищем во всем workspace
-    for _, descendant in ipairs(Workspace:GetDescendants()) do
+    for _, descendant in ipairs(rootModel:GetDescendants()) do
         if descendant:IsA("ProximityPrompt") and descendant.Enabled then
             local part = descendant.Parent
             if part and part:IsA("BasePart") then
                 local distance = (part.Position - originPosition).Magnitude
-                if distance <= maxDistance then
-                    table.insert(prompts, {
-                        Prompt = descendant,
-                        Distance = distance,
-                        Part = part
-                    })
+                if distance <= maxDistance and (not bestDistance or distance < bestDistance) then
+                    bestPrompt = descendant
+                    bestDistance = distance
                 end
             end
         end
     end
     
-    -- Сортируем по расстоянию (ближайшие first)
-    table.sort(prompts, function(a, b)
-        return a.Distance < b.Distance
-    end)
-    
-    return prompts
-end
-
-local function findBestProximityPrompt(searchTime)
-    local character = player.Character
-    if not character then return nil end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return nil end
-    
-    local startTime = tick()
-    local searchRadius = 30
-    local bestPrompt = nil
-    local closestDistance = math.huge
-    
-    WindUI:Notify({ Title = "🔍 Поиск", Content = "Ищу все proximity prompts вокруг...", Duration = 1, Icon = "search" })
-    
-    while tick() - startTime < searchTime do
-        local allPrompts = getAllProximityPromptsInRange(humanoidRootPart.Position, searchRadius)
-        
-        if #allPrompts > 0 then
-            -- Берем самый близкий prompt
-            bestPrompt = allPrompts[1].Prompt
-            closestDistance = allPrompts[1].Distance
-            WindUI:Notify({ 
-                Title = "✅ Найдено", 
-                Content = "Найдено " .. #allPrompts .. " prompts, ближайший: " .. math.floor(closestDistance) .. " studs", 
-                Duration = 1, 
-                Icon = "check" 
-            })
-            break
-        end
-        
-        -- Если не нашли, увеличиваем радиус поиска
-        if tick() - startTime > searchTime * 0.5 then
-            searchRadius = 50
-        end
-        
-        task.wait(0.05) -- Уменьшил задержку для более быстрого поиска
-    end
-    
     return bestPrompt
 end
 
-local function advancedProximityPromptActivation(prompt)
+local function activateProximityPromptInstantly(prompt)
     if not prompt or not prompt:IsA("ProximityPrompt") then
         return false, "Invalid prompt"
     end
-
-    local success = false
-    local errorMessage = nil
-
-    -- Метод 1: Прямая активация с изменением HoldDuration
+    
     local originalHoldDuration = prompt.HoldDuration
     prompt.HoldDuration = 0
-
-    local result1, err1 = pcall(function()
-        prompt:InputHoldBegin()
-        prompt:InputHoldEnd()
+    
+    local success, result = pcall(function()
+        fireproximityprompt(prompt)
         
         local remoteEvent = prompt:FindFirstChildOfClass("RemoteEvent")
         if remoteEvent then
@@ -317,168 +287,160 @@ local function advancedProximityPromptActivation(prompt)
         
         return true
     end)
-
+    
     prompt.HoldDuration = originalHoldDuration
-
-    if result1 then
-        return true
-    end
-
-    -- Метод 2: Используем fireproximityprompt
-    local result2, err2 = pcall(function()
-        game:GetService("ReplicatedStorage"):FindFirstChild("Events"):FindFirstChild("FireProximityPrompt"):FireServer(prompt)
-        return true
-    end)
-
-    if result2 then
-        return true
-    end
-
-    -- Метод 3: Симуляция клика игрока
-    local result3, err3 = pcall(function()
-        local character = player.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                prompt:InputHoldBegin()
-                task.wait(0.1)
-                prompt:InputHoldEnd()
-                return true
-            end
-        end
-        return false
-    end)
-
-    if result3 then
-        return true
-    end
-
-    -- Метод 4: Прямой вызов Triggered
-    local result4, err4 = pcall(function()
-        if prompt.Triggered then
-            prompt.Triggered:Connect(function()
-                -- Triggered event connected
-            end)
-        end
-        return true
-    end)
-
-    return result4, err4 or "All activation methods failed"
+    
+    return success, result
 end
 
-local function ensureCharacterReady()
-    local character = player.Character
-    if not character then
-        player.CharacterAdded:Wait()
-        character = player.Character
-    end
-    
-    local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    
-    return character, humanoidRootPart, humanoid
-end
-
+-- ============================
+-- Instant Steal Function
+-- ============================
 local function executeInstantSteal()
     if isRunning then
-        WindUI:Notify({ Title = "⚠️ Warning", Content = "Already running!", Duration = 2, Icon = "alert-circle" })
+        WindUI:Notify({ 
+            Title = "⚠️ Warning", 
+            Content = "Already running!", 
+            Duration = 2, 
+            Icon = "alert-circle" 
+        })
         return
     end
-
+    
     isRunning = true
-
-    -- Ожидаем готовности персонажа
-    local character, humanoidRootPart, humanoid = ensureCharacterReady()
-    if not character or not humanoidRootPart or not humanoid then
-        WindUI:Notify({ Title = "❌ Error", Content = "Character not ready!", Duration = 3, Icon = "x" })
+    
+    local character = player.Character
+    if not character then
+        WindUI:Notify({ 
+            Title = "❌ Error", 
+            Content = "Character not found!", 
+            Duration = 3, 
+            Icon = "x" 
+        })
         isRunning = false
         return
     end
-
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not humanoidRootPart then
+        WindUI:Notify({ 
+            Title = "❌ Error", 
+            Content = "Humanoid/HRP not found!", 
+            Duration = 3, 
+            Icon = "x" 
+        })
+        isRunning = false
+        return
+    end
+    
     local playerBase = findPlayerBase()
     if not playerBase then
-        WindUI:Notify({ Title = "❌ Error", Content = "Your base not found!", Duration = 3, Icon = "x" })
+        WindUI:Notify({ 
+            Title = "❌ Error", 
+            Content = "Your base not found!", 
+            Duration = 3, 
+            Icon = "x" 
+        })
         isRunning = false
         return
     end
-
+    
     local targetModel, targetBase = findTargetFemboy(playerBase)
     if not targetModel then
-        WindUI:Notify({ Title = "❌ Error", Content = "Target not found!", Duration = 3, Icon = "x" })
+        WindUI:Notify({ 
+            Title = "❌ Error", 
+            Content = "Target not found!", 
+            Duration = 3, 
+            Icon = "x" 
+        })
         isRunning = false
         return
     end
-
+    
     local targetPart = getAnyBasePart(targetModel)
     if not targetPart then
-        WindUI:Notify({ Title = "❌ Error", Content = "Could not find target part", Duration = 3, Icon = "x" })
+        WindUI:Notify({ 
+            Title = "❌ Error", 
+            Content = "Could not find target part", 
+            Duration = 3, 
+            Icon = "x" 
+        })
         isRunning = false
         return
     end
-
+    
     local targetPosition = targetPart.Position + Vector3.new(0, 3, 0)
-
+    
     local savedWalkSpeed = humanoid.WalkSpeed
     local savedJumpPower = humanoid.JumpPower
     humanoid.WalkSpeed = 0
     humanoid.JumpPower = 0
-
-    WindUI:Notify({ Title = "✨ Телепорт", Content = "Плавный телепорт к цели...", Duration = 2, Icon = "arrow-right-circle" })
-
-    if not smoothTeleport(targetPosition) then
-        WindUI:Notify({ Title = "❌ Ошибка", Content = "Телепортация не удалась!", Duration = 3, Icon = "x" })
+    
+    WindUI:Notify({ 
+        Title = "✨ Info", 
+        Content = "Teleporting to target...", 
+        Duration = 2, 
+        Icon = "arrow-right-circle" 
+    })
+    
+    if not teleportCharacterToPosition(targetPosition) then
+        WindUI:Notify({ 
+            Title = "❌ Error", 
+            Content = "Teleportation failed!", 
+            Duration = 3, 
+            Icon = "x" 
+        })
         humanoid.WalkSpeed = savedWalkSpeed
         humanoid.JumpPower = savedJumpPower
         isRunning = false
         return
     end
-
-    task.wait(0.2)
-
-    -- Улучшенный поиск proximity prompt
-    WindUI:Notify({ Title = "🔍 Поиск", Content = "Расширенный поиск proximity prompt...", Duration = 1, Icon = "search" })
-    local prompt = findBestProximityPrompt(1.5) -- Увеличил время поиска до 1.5 секунд
-
+    
+    task.wait(0.3)
+    
+    local prompt = findProximityPromptInModel(targetBase or targetModel, targetPosition, 25)
+    
     if prompt then
         WindUI:Notify({ 
-            Title = "⚡ Активация", 
-            Content = "Активирую prompt улучшенным методом...", 
+            Title = "⚡ Info", 
+            Content = "Instantly activating prompt...", 
             Duration = 2, 
             Icon = "zap" 
         })
         
-        local ok, err = advancedProximityPromptActivation(prompt)
-
+        local ok, err = activateProximityPromptInstantly(prompt)
+        
         if ok then
             WindUI:Notify({ 
-                Title = "✅ Успех", 
-                Content = "Prompt успешно активирован!", 
+                Title = "✅ Success", 
+                Content = "Prompt instantly activated!", 
                 Duration = 2, 
                 Icon = "check" 
             })
-            task.wait(0.5)
+            task.wait(1)
         else
             WindUI:Notify({ 
-                Title = "⚠️ Предупреждение", 
-                Content = "Ошибка активации: " .. tostring(err), 
+                Title = "⚠️ Warning", 
+                Content = err or "Prompt activation failed!", 
                 Duration = 3, 
                 Icon = "alert-circle" 
             })
         end
     else
         WindUI:Notify({ 
-            Title = "⚠️ Предупреждение", 
-            Content = "Prompt не найден после расширенного поиска!", 
+            Title = "⚠️ Warning", 
+            Content = "Prompt not found!", 
             Duration = 2, 
             Icon = "alert-circle" 
         })
     end
-
-    -- Возврат на базу
+    
     local spawn = playerBase:FindFirstChild("Spawn")
     if spawn then
         local spawnPosition
-
+        
         if spawn:IsA("BasePart") then
             spawnPosition = spawn.Position
         else
@@ -487,22 +449,32 @@ local function executeInstantSteal()
                 spawnPosition = basePart.Position
             end
         end
-
+        
         if spawnPosition then
-            WindUI:Notify({ Title = "🏠 Возврат", Content = "Возвращаюсь на базу...", Duration = 2, Icon = "home" })
-            smoothTeleport(spawnPosition + Vector3.new(0, 3, 0))
+            WindUI:Notify({ 
+                Title = "🏠 Info", 
+                Content = "Returning to base...", 
+                Duration = 2, 
+                Icon = "home" 
+            })
+            teleportCharacterToPosition(spawnPosition + Vector3.new(0, 3, 0))
             task.wait(0.3)
-            WindUI:Notify({ Title = "✅ Успех", Content = "Успешно вернулся на базу!", Duration = 2, Icon = "check" })
+            WindUI:Notify({ 
+                Title = "✅ Success", 
+                Content = "Returned successfully!", 
+                Duration = 2, 
+                Icon = "check" 
+            })
         end
     end
-
+    
     humanoid.WalkSpeed = savedWalkSpeed
     humanoid.JumpPower = savedJumpPower
     isRunning = false
 end
 
 -- ============================
--- Create main window
+-- Create UI
 -- ============================
 local Window = WindUI:CreateWindow({
     Title = "💫 NovaAxis",
@@ -515,14 +487,13 @@ local Window = WindUI:CreateWindow({
     },
 })
 
--- Customize open button
 Window:EditOpenButton({
     Title = "💫 NovaAxis",
     Icon = "sparkles",
     CornerRadius = UDim.new(0, 16),
     StrokeThickness = 2,
     Color = ColorSequence.new(
-        Color3.fromHex("BEB4FF"), 
+        Color3.fromHex("BEB4FF"),
         Color3.fromHex("7850FF")
     ),
     OnlyMobile = false,
@@ -530,7 +501,6 @@ Window:EditOpenButton({
     Draggable = true,
 })
 
--- Add and set theme
 WindUI:AddTheme({
     Name = "Nova Neon",
     Accent = Color3.fromRGB(120, 80, 255),
@@ -559,32 +529,43 @@ local UtilityTab = Window:Tab({
     Locked = false,
 })
 
+local InfoTab = Window:Tab({
+    Title = "Information",
+    Icon = "info",
+    Locked = false,
+})
+
 -- ============================
--- IMPROVED INSTANT STEAL SECTION (Main Tab)
+-- Main Tab
 -- ============================
 local StealSection = MainTab:Section({
-    Title = "⚡ Улучшенный Instant Steal",
+    Title = "⚡ Instant Steal",
     Icon = "zap",
     Opened = true
 })
 
 StealSection:Button({
-    Title = "⚡ Запустить Улучшенный Steal",
-    Description = "Плавный телепорт + улучшенная активация prompt",
+    Title = "⚡ Execute Instant Steal",
+    Description = "Teleport, instantly activate prompt, return.",
     Icon = "zap",
     Callback = function()
         task.spawn(function()
             local ok, err = pcall(executeInstantSteal)
             if not ok then
-                WindUI:Notify({ Title = "❌ Ошибка", Content = "Ошибка: " .. tostring(err), Duration = 3, Icon = "x" })
+                WindUI:Notify({ 
+                    Title = "❌ Error", 
+                    Content = "Error: " .. tostring(err), 
+                    Duration = 3, 
+                    Icon = "x" 
+                })
             end
         end)
     end
 })
 
 StealSection:Keybind({
-    Title = "Горячая клавиша Steal",
-    Description = "Быстрая активация улучшенного steal",
+    Title = "Quick Steal Hotkey",
+    Description = "Set quick steal hotkey",
     Icon = "keyboard",
     Value = "F",
     Callback = function(v)
@@ -592,7 +573,6 @@ StealSection:Keybind({
         if successKey and code then
             if _G.NovaAxisQuickStealConnection then
                 _G.NovaAxisQuickStealConnection:Disconnect()
-                _G.NovaAxisQuickStealConnection = nil
             end
             _G.NovaAxisQuickStealConnection = UserInputService.InputBegan:Connect(function(input, gpe)
                 if gpe then return end
@@ -600,30 +580,33 @@ StealSection:Keybind({
                     executeInstantSteal()
                 end
             end)
-            WindUI:Notify({ Title = "✅ Горячая клавиша", Content = "Горячая клавиша установлена на " .. v, Duration = 2, Icon = "keyboard" })
+            WindUI:Notify({ 
+                Title = "✅ Hotkey", 
+                Content = "Quick steal hotkey set to " .. v, 
+                Duration = 2, 
+                Icon = "keyboard" 
+            })
         end
     end
 })
 
--- Target List Section
 local TargetSection = MainTab:Section({
-    Title = "🎯 Список Целей",
+    Title = "🎯 Target List",
     Icon = "list",
     Opened = true
 })
 
 TargetSection:Paragraph({
-    Title = "🎯 Доступные цели",
-    Content = "• Любое имя с 'femboy'\n• Roommate\n• Casual Astolfo\n• Chihiro Fujisaki\n• Venti\n• Gasper\n• Saika\n• J*b Application\n• Mythical Lucky Block\n• Nagisa Shiota\n• Felix\n• Rimuru"
+    Title = "🎯 Available Targets",
+    Content = "• Any name with 'femboy'\n• Roommate\n• Casual Astolfo\n• Chihiro Fujisaki\n• Venti\n• Gasper\n• Saika\n• J*b Application\n• Mythical Lucky Block\n• Nagisa Shiota\n• Felix\n• Rimuru"
 })
 
 -- ============================
--- UTILITY TAB (existing features)
+-- Utility Tab
 -- ============================
--- WalkSpeed
 UtilityTab:Slider({
-    Title = "Скорость ходьбы", 
-    Description = "Настройте скорость ходьбы (16 - 100)",
+    Title = "WalkSpeed",
+    Description = "Adjust your walking speed (16 - 100)",
     Icon = "activity",
     Value = {
         Min = 16,
@@ -631,29 +614,24 @@ UtilityTab:Slider({
         Default = 16,
     },
     Callback = function(value)
-        local player = game.Players.LocalPlayer
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = value
+        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+            player.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = value
         end
     end
 })
 
--- Noclip
-local noclip = false
-local noclipConnection
-
 UtilityTab:Toggle({
     Title = "Noclip",
-    Description = "Включить/выключить столкновения",
+    Description = "Toggle wall collision on/off",
     Icon = "box",
     Default = false,
     Callback = function(state)
         noclip = state
-        local char = game.Players.LocalPlayer.Character
+        local char = player.Character
         if not char then return end
-
+        
         if noclip then
-            noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+            noclipConnection = RunService.Stepped:Connect(function()
                 for _, part in pairs(char:GetDescendants()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
@@ -674,12 +652,9 @@ UtilityTab:Toggle({
     end
 })
 
--- Infinite Jump
-local infiniteJump = false
-
 UtilityTab:Toggle({
-    Title = "Бесконечный прыжок",
-    Description = "Прыгать бесконечно в воздухе",
+    Title = "Infinite Jump",
+    Description = "Jump infinitely while in the air",
     Icon = "arrow-up",
     Default = false,
     Callback = function(state)
@@ -688,21 +663,20 @@ UtilityTab:Toggle({
 })
 
 UserInputService.JumpRequest:Connect(function()
-    if infiniteJump then
-        local player = game.Players.LocalPlayer
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-            player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+    if infiniteJump and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid:ChangeState("Jumping")
         end
     end
 end)
 
--- FPS Boost
 UtilityTab:Button({
-    Title = "Ускорение FPS",
-    Description = "Оптимизировать игру для лучшей производительности",
+    Title = "FPS Boost",
+    Description = "Optimize game for better performance",
     Icon = "gauge",
     Callback = function()
-        for _, v in pairs(workspace:GetDescendants()) do
+        for _, v in pairs(Workspace:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.Material = Enum.Material.SmoothPlastic
                 v.Reflectance = 0
@@ -711,34 +685,30 @@ UtilityTab:Button({
             elseif v:IsA("Explosion") then
                 v.BlastPressure = 0
                 v.BlastRadius = 0
+            elseif v:IsA("Decal") or v:IsA("Texture") then
+                v.Transparency = 1
             end
         end
-
-        local lighting = game:GetService("Lighting")
-        lighting.GlobalShadows = false
-        lighting.FogEnd = 1e10
-        lighting.Brightness = 1
-        lighting.EnvironmentDiffuseScale = 0
-        lighting.EnvironmentSpecularScale = 0
-
-        local terrain = workspace:FindFirstChildOfClass("Terrain")
+        
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 1e10
+        Lighting.Brightness = 1
+        Lighting.EnvironmentDiffuseScale = 0
+        Lighting.EnvironmentSpecularScale = 0
+        
+        local terrain = Workspace:FindFirstChildOfClass("Terrain")
         if terrain then
             terrain.WaterWaveSize = 0
             terrain.WaterWaveSpeed = 0
             terrain.WaterReflectance = 0
             terrain.WaterTransparency = 1
         end
-
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Decal") or obj:IsA("Texture") then
-                obj.Transparency = 1
-            end
-        end
-
+        
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        
         WindUI:Notify({
-            Title = "✅ Ускорение FPS",
-            Content = "Производительность игры оптимизирована!",
+            Title = "✅ FPS Boost",
+            Content = "Game performance optimized!",
             Duration = 3,
             Icon = "gauge"
         })
@@ -746,14 +716,8 @@ UtilityTab:Button({
 })
 
 -- ============================
--- INFORMATION TAB
+-- Information Tab
 -- ============================
-local InfoTab = Window:Tab({
-    Title = "Информация",
-    Icon = "info",
-    Locked = false,
-})
-
 local InfoSection = InfoTab:Section({
     Title = "💫 NovaAxis Hub",
     Icon = "sparkles",
@@ -761,16 +725,16 @@ local InfoSection = InfoTab:Section({
 })
 
 InfoSection:Button({
-    Title = "🌐 Discord Сервер",
-    Description = "Нажмите чтобы скопировать ссылку (Discord.gg/Eg98P4wf2V)",
-    Icon = "discord",
+    Title = "🌐 Discord Server",
+    Description = "Click to copy invite link",
+    Icon = "link",
     Callback = function()
         pcall(function()
             setclipboard("https://discord.gg/Eg98P4wf2V")
         end)
         WindUI:Notify({
-            Title = "✅ Скопировано",
-            Content = "Ссылка на Discord скопирована!",
+            Title = "✅ Copied",
+            Content = "Discord invite copied to clipboard!",
             Duration = 3,
             Icon = "copy"
         })
@@ -778,11 +742,11 @@ InfoSection:Button({
 })
 
 -- ============================
--- Final notification
+-- Final Notification
 -- ============================
 WindUI:Notify({
     Title = "💫 NovaAxis Hub",
-    Content = "Успешно загружено с улучшенным Instant Steal!",
+    Content = "Successfully loaded with Anti-Cheat Bypass!",
     Duration = 3,
     Icon = "sparkles"
 })
