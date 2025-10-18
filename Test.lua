@@ -55,12 +55,6 @@ local UtilityTab = Window:Tab({
     Locked = false,
 })
 
-local InfoTab = Window:Tab({
-    Title = "Information",
-    Icon = "info",
-    Locked = false,
-})
-
 ----------------------------------------------------------
 -- 🔹 MAIN TAB — Claim Money
 ----------------------------------------------------------
