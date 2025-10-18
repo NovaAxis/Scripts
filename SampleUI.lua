@@ -55,10 +55,11 @@ local UtilityTab = Window:Tab({
     Locked = false,
 })
 
--- WalkSpeed Slider
+-- WalkSpeed
 UtilityTab:Slider({
     Title = "WalkSpeed", 
     Description = "Adjust your walking speed (16 - 100)",
+    Icon = "activity",
     Value = {
         Min = 16,
         Max = 100,
@@ -72,13 +73,14 @@ UtilityTab:Slider({
     end
 })
 
--- Noclip Toggle
+-- Noclip
 local noclip = false
 local noclipConnection
 
 UtilityTab:Toggle({
     Title = "Noclip",
     Description = "Toggle wall collision on/off",
+    Icon = "box",
     Default = false,
     Callback = function(state)
         noclip = state
@@ -86,7 +88,6 @@ UtilityTab:Toggle({
         if not char then return end
 
         if noclip then
-            -- Enable noclip
             noclipConnection = game:GetService("RunService").Stepped:Connect(function()
                 for _, part in pairs(char:GetDescendants()) do
                     if part:IsA("BasePart") then
@@ -95,7 +96,6 @@ UtilityTab:Toggle({
                 end
             end)
         else
-            -- Disable noclip and restore collisions
             if noclipConnection then
                 noclipConnection:Disconnect()
                 noclipConnection = nil
@@ -109,20 +109,20 @@ UtilityTab:Toggle({
     end
 })
 
--- Infinite Jump Toggle
+-- Infinite Jump
 local infiniteJump = false
 local userInputService = game:GetService("UserInputService")
 
 UtilityTab:Toggle({
     Title = "Infinite Jump",
     Description = "Jump infinitely while in the air",
+    Icon = "arrow-up",
     Default = false,
     Callback = function(state)
         infiniteJump = state
     end
 })
 
--- Infinite Jump Logic
 userInputService.JumpRequest:Connect(function()
     if infiniteJump then
         local player = game.Players.LocalPlayer
@@ -181,6 +181,9 @@ UtilityTab:Button({
     end
 })
 
+----------------------------------------------------------
+-- 🔹 INFORMATION TAB — Discord Button Only
+----------------------------------------------------------
 local InfoTab = Window:Tab({
     Title = "Information",
     Icon = "info",
