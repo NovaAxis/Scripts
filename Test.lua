@@ -20,8 +20,8 @@ Window:EditOpenButton({
     CornerRadius = UDim.new(0, 16),
     StrokeThickness = 2,
     Color = ColorSequence.new(
-        Color3.fromHex("BEB4FF"), 
-        Color3.fromHex("7850FF")
+        Color3.fromHex("260534"), 
+        Color3.fromHex("12394a")
     ),
     OnlyMobile = false,
     Enabled = true,
