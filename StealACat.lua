@@ -1,7 +1,3 @@
--- ============================
--- 💫 NovaAxis — Auto Collect + Auto Lock + Utility Hub + Info Tab
--- ============================
-
 -- Load WindUI
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
@@ -24,26 +20,33 @@ Window:EditOpenButton({
     CornerRadius = UDim.new(0, 16),
     StrokeThickness = 2,
     Color = ColorSequence.new(
-        Color3.fromHex("BEB4FF"), 
-        Color3.fromHex("7850FF")
+        Color3.fromHex("260534"), 
+        Color3.fromHex("12394a")
     ),
     OnlyMobile = false,
     Enabled = true,
     Draggable = true,
 })
 
--- Add and set theme
+-- theme gradients
 WindUI:AddTheme({
-    Name = "Nova Neon",
-    Accent = Color3.fromRGB(120, 80, 255),
-    Dialog = Color3.fromRGB(18, 18, 20),
-    Outline = Color3.fromRGB(255, 255, 255),
-    Text = Color3.fromRGB(230, 230, 230),
-    Placeholder = Color3.fromRGB(130, 130, 140),
-    Background = Color3.fromRGB(8, 8, 10),
-    Button = Color3.fromRGB(50, 40, 60),
-    Icon = Color3.fromRGB(190, 180, 255)
+    Name = "Nova Neon", -- theme name
+    
+    Accent = WindUI:Gradient({                                                  
+        ["0"] = { Color = Color3.fromHex("#260534"), Transparency = 0 },        
+        ["100"]   = { Color = Color3.fromHex("#12394a"), Transparency = 0 },    
+    }, {                                                                        
+        Rotation = 0,                                                           
+    }),                                                                         
+    Dialog = Color3.fromHex("#121214"),
+    Outline = Color3.fromHex("#FFFFFF"),
+    Text = Color3.fromHex("#e6e6e6"),
+    Placeholder = Color3.fromHex("#82828c"),
+    Background = Color3.fromHex("#08080a"),
+    Button = Color3.fromHex("#32283c"),
+    Icon = Color3.fromHex("#beb4ff")
 })
+
 WindUI:SetTheme("Nova Neon")
 
 ----------------------------------------------------------
