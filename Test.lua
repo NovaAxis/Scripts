@@ -47,6 +47,8 @@ WindUI:AddTheme({
     Icon = Color3.fromHex("#beb4ff")
 })
 
+WindUI:SetTheme("Nova Neon")
+
 -- Tabs
 local MainTab = Window:Tab({
     Title = "Main",
