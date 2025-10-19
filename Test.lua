@@ -168,7 +168,7 @@ MainTab:Button({
     end
 })
 
-Tab:Divider()
+Tab:Space()
 
 ----------------------------------------------------------
 -- 🔹 AUTO LOCK BASE
