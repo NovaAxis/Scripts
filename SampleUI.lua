@@ -7,10 +7,28 @@ local Window = WindUI:CreateWindow({
     Icon = "sparkles",
     Author = "by NovaAxis",
     BackgroundImageTransparency = 0.45,
+
     User = {
-        Enabled = true,
-        Anonymous = false,
-    },
+    Enabled = true,
+    Anonymous = false,
+    Callback = function()
+        local player = game.Players.LocalPlayer
+        if player then
+            local nickname = player.Name
+            setclipboard(nickname)
+            print("Nickname copied " .. nickname)
+            
+            WindUI:Notify({
+                Title = "👤 Nickname Copied",
+                Content = "Your Username '" .. nickname .. "' has been copied to the clipboard.",
+                Duration = 3,
+                Icon = "user",
+            })
+        else
+            warn("Player not found.")
+        end
+    end,
+}
 })
 
 -- Customize open button
@@ -28,15 +46,14 @@ Window:EditOpenButton({
     Draggable = true,
 })
 
--- theme gradients
 WindUI:AddTheme({
-    Name = "Nova Neon", -- theme name
+    Name = "Nova Neon",
     
     Accent = WindUI:Gradient({                                                  
-        ["0"] = { Color = Color3.fromHex("#260534"), Transparency = 0 },        
-        ["100"]   = { Color = Color3.fromHex("#12394a"), Transparency = 0 },    
+        ["0"]   = { Color = Color3.fromHex("#beb4ff"), Transparency = 0 },  -- Soft lavender start
+        ["100"] = { Color = Color3.fromHex("#7c3aed"), Transparency = 0 },  -- Vibrant violet end
     }, {                                                                        
-        Rotation = 0,                                                           
+        Rotation = 90,                                                         -- Vertical gradient
     }),                                                                         
     Dialog = Color3.fromHex("#121214"),
     Outline = Color3.fromHex("#FFFFFF"),
@@ -198,15 +215,15 @@ local InfoTab = Window:Tab({
 })
 
 local InfoSection = InfoTab:Section({
-    Title = "💫 NovaAxis Hub",
-    Icon = "sparkles",
+    Title = "Discord Server (NovaAxis Hub)",
+    Icon = "globe",
     Opened = true
 })
 
 InfoSection:Button({
     Title = "🌐 Discord Server",
-    Description = "Click to copy invite link (Discord.gg/Eg98P4wf2V)",
-    Icon = "discord",
+    Desc = "Click to copy invite link",
+    Icon = "globe",
     Callback = function()
         pcall(function()
             setclipboard("https://discord.gg/Eg98P4wf2V")
@@ -214,6 +231,29 @@ InfoSection:Button({
         WindUI:Notify({
             Title = "✅ Copied",
             Content = "Discord invite copied to clipboard!",
+            Duration = 3,
+            Icon = "copy"
+        })
+    end
+})
+
+local InfoSection = InfoTab:Section({
+    Title = "UI Library (Avtor)",
+    Icon = "palette",
+    Opened = true
+})
+
+InfoSection:Button({
+    Title = "🎨 GitHub Avtor",
+    Desc = "Click to copy GitHub avtor link",
+    Icon = "palette",
+    Callback = function()
+        pcall(function()
+            setclipboard("https://github.com/Footagesus")
+        end)
+        WindUI:Notify({
+            Title = "✅ Copied",
+            Content = "GitHub avtor link copied to clipboard!",
             Duration = 3,
             Icon = "copy"
         })
