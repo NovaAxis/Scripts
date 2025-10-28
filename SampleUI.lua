@@ -66,23 +66,30 @@ WindUI:AddTheme({
 
 WindUI:SetTheme("Nova Neon")
 
+Window:SetToggleKey(Enum.KeyCode.RightShift)
+
 -- Tabs
 local MainTab = Window:Tab({
     Title = "Main",
-    Icon = "sparkles",
+    Icon = "house",
     Locked = false,
 })
 
-local UtilityTab = Window:Tab({
-    Title = "Utility",
-    Icon = "wrench",
+local LocalPlayerTab = Window:Tab({
+    Title = "Local Player",
+    Icon = "user",
     Locked = false,
+})
+
+local LocalPlayerSection = LocalPlayerTab:Section({
+    Title = "Local Player",
+    Icon = "user",
+    Opened = true
 })
 
 -- WalkSpeed
-UtilityTab:Slider({
-    Title = "WalkSpeed", 
-    Description = "Adjust your walking speed (16 - 100)",
+LocalPlayerTab:Slider({
+    Title = "WalkSpeed",
     Icon = "activity",
     Value = {
         Min = 16,
@@ -101,9 +108,8 @@ UtilityTab:Slider({
 local noclip = false
 local noclipConnection
 
-UtilityTab:Toggle({
+LocalPlayerTab:Toggle({
     Title = "Noclip",
-    Description = "Toggle wall collision on/off",
     Icon = "box",
     Default = false,
     Callback = function(state)
@@ -137,9 +143,8 @@ UtilityTab:Toggle({
 local infiniteJump = false
 local userInputService = game:GetService("UserInputService")
 
-UtilityTab:Toggle({
+LocalPlayerTab:Toggle({
     Title = "Infinite Jump",
-    Description = "Jump infinitely while in the air",
     Icon = "arrow-up",
     Default = false,
     Callback = function(state)
@@ -157,9 +162,9 @@ userInputService.JumpRequest:Connect(function()
 end)
 
 -- FPS Boost
-UtilityTab:Button({
+LocalPlayerTab:Button({
     Title = "FPS Boost",
-    Description = "Optimize game for better performance",
+    Desc = "Makes bad graphics to increase fps",
     Icon = "gauge",
     Callback = function()
         for _, v in pairs(workspace:GetDescendants()) do
@@ -206,7 +211,7 @@ UtilityTab:Button({
 })
 
 ----------------------------------------------------------
--- 🔹 INFORMATION TAB — Discord Button Only
+-- 🔹 INFORMATION TAB
 ----------------------------------------------------------
 local InfoTab = Window:Tab({
     Title = "Information",
@@ -221,7 +226,7 @@ local InfoSection = InfoTab:Section({
 })
 
 InfoSection:Button({
-    Title = "🌐 Discord Server",
+    Title = "🌐 Discord NovaAxis Hub",
     Desc = "Click to copy invite link",
     Icon = "globe",
     Callback = function()
@@ -238,14 +243,14 @@ InfoSection:Button({
 })
 
 local InfoSection = InfoTab:Section({
-    Title = "UI Library (Avtor)",
+    Title = "UI Library (Author)",
     Icon = "palette",
     Opened = true
 })
 
 InfoSection:Button({
-    Title = "🎨 GitHub Avtor",
-    Desc = "Click to copy GitHub avtor link",
+    Title = "🎨 GitHub Author",
+    Desc = "Click to copy GitHub author link",
     Icon = "palette",
     Callback = function()
         pcall(function()
