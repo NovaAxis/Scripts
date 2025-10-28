@@ -38,8 +38,8 @@ Window:EditOpenButton({
     CornerRadius = UDim.new(0, 16),
     StrokeThickness = 2,
     Color = ColorSequence.new(
-        Color3.fromHex("260534"), 
-        Color3.fromHex("12394a")
+        Color3.fromHex("beb4ff"), 
+        Color3.fromHex("7c3aed")
     ),
     OnlyMobile = false,
     Enabled = true,
@@ -73,6 +73,12 @@ local MainTab = Window:Tab({
     Title = "Main",
     Icon = "house",
     Locked = false,
+})
+
+local MainSection = MainTab:Section({
+    Title = "Main",
+    Icon = "house",
+    Opened = true
 })
 
 local LocalPlayerTab = Window:Tab({
