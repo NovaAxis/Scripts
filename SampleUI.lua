@@ -216,9 +216,7 @@ LocalPlayerTab:Button({
     end
 })
 
-----------------------------------------------------------
--- 🔹 INFORMATION TAB
-----------------------------------------------------------
+-- Information Tab
 local InfoTab = Window:Tab({
     Title = "Information",
     Icon = "info",
