@@ -241,8 +241,6 @@ local function FarmMob(mob)
     
     EquipTool()
     
-    local farmCFrame = mobRoot.CFrame * CFrame.new(0, FarmConfig.FarmDistance, 0)
-    
     while IsAlive(mob) and _G.autoFarmMobs do
         local char = GetPlayerCharacter()
         local rootPart = GetRootPart()
@@ -252,6 +250,7 @@ local function FarmMob(mob)
             continue
         end
         
+        local farmCFrame = mobRoot.CFrame * CFrame.new(0, 0, FarmConfig.FarmDistance)
         rootPart.CFrame = farmCFrame
         
         if _G.bringMobs then
