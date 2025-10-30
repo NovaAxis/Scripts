@@ -537,9 +537,9 @@ InfoSection2:Button({
 -- Initialize notification
 WindUI:Notify({
     Title = "💫 NovaAxis Hub Loaded",
-    Content = "Hub ready! Press RightShift to toggle menu.",
+    Content = "Hello, NovaAxis Hub User!",
     Duration = 5,
     Icon = "sparkles"
 })
 
-print("NovaAxis Hub loaded successfully!")
+print("NovaAxis Hub loaded successfully! Hello, NovaAxis Hub User!")
