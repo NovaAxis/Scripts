@@ -7,7 +7,8 @@ local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/rel
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 local Player = Players.LocalPlayer
 
 -- Create main window
@@ -84,13 +85,6 @@ local MainTab = Window:Tab({
     Locked = false,
 })
 
--- Teleport Tab
-local TeleportTab = Window:Tab({
-    Title = "Teleport",
-    Icon = "rocket",
-    Locked = false,
-})
-
 -- Server Join Tab
 local ServerTab = Window:Tab({
     Title = "Server Join",
@@ -106,41 +100,140 @@ local ServerSection = ServerTab:Section({
 
 ServerSection:Button({
     Title = "Rejoin Server",
-    Desc = "Rejoin the server",
+    Desc = "Rejoin the current server",
     Icon = "share",
     Callback = function()
-        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
+        WindUI:Notify({
+            Title = "🔄 Rejoining...",
+            Content = "Rejoining server in progress...",
+            Duration = 3,
+            Icon = "loader"
+        })
+        
+        task.wait(1)
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Player)
     end
 })
 
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-
 ServerSection:Button({
-    Title = "Server Hop to low-pop server",
-    Desc = "Teleport to another public server (1–4 players)",
-    Icon = "server",
+    Title = "Hop to Low-Pop Server",
+    Desc = "Teleport to server with 1-4 players",
+    Icon = "users",
     Callback = function()
-        local placeId = game.PlaceId
-        local currentJobId = game.JobId
+        WindUI:Notify({
+            Title = "🔍 Searching...",
+            Content = "Looking for low-population server...",
+            Duration = 2,
+            Icon = "loader"
+        })
         
-        local success, result = pcall(function()
-            local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"))
+        task.spawn(function()
+            local placeId = game.PlaceId
+            local currentJobId = game.JobId
+            local found = false
             
-            for _, server in pairs(servers.data) do
-                if server.playing >= 1 and server.playing <= 4 and server.id ~= currentJobId then
-                    TeleportService:TeleportToPlaceInstance(placeId, server.id, Players.LocalPlayer)
-                    return
+            local success, result = pcall(function()
+                local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"))
+                
+                for _, server in pairs(servers.data) do
+                    if server.playing >= 1 and server.playing <= 4 and server.id ~= currentJobId then
+                        WindUI:Notify({
+                            Title = "✅ Server Found",
+                            Content = "Found server with " .. server.playing .. " players!",
+                            Duration = 2,
+                            Icon = "check"
+                        })
+                        
+                        task.wait(0.5)
+                        TeleportService:TeleportToPlaceInstance(placeId, server.id, Player)
+                        found = true
+                        return
+                    end
                 end
+            end)
+            
+            if not success then
+                WindUI:Notify({
+                    Title = "⚠️ Error",
+                    Content = "Failed to search servers! Joining random server...",
+                    Duration = 3,
+                    Icon = "alert-triangle"
+                })
+            elseif not found then
+                WindUI:Notify({
+                    Title = "⚠️ No Server Found",
+                    Content = "No low-pop servers available! Joining random server...",
+                    Duration = 3,
+                    Icon = "alert-triangle"
+                })
             end
             
-            TeleportService:Teleport(placeId, Players.LocalPlayer)
+            task.wait(0.5)
+            TeleportService:Teleport(placeId, Player)
         end)
-        
-        if not success then
-            TeleportService:Teleport(placeId, Players.LocalPlayer)
-        end
     end
+})
+
+ServerSection:Button({
+    Title = "Hop to Friends Server",
+    Desc = "Teleport to server where your friends are",
+    Icon = "users",
+    Callback = function()
+        WindUI:Notify({
+            Title = "🔍 Searching...",
+            Content = "Looking for server with friends...",
+            Duration = 2,
+            Icon = "loader"
+        })
+        
+        task.spawn(function()
+            local placeId = game.PlaceId
+            local found = false
+            
+            local success, result = pcall(function()
+                local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/VIP?sortOrder=Asc&limit=100"))
+                
+                for _, server in pairs(servers.data) do
+                    if server.playing > 0 then
+                        WindUI:Notify({
+                            Title = "✅ Joining Friends Server",
+                            Content = "Joining server with " .. server.playing .. " players!",
+                            Duration = 2,
+                            Icon = "check"
+                        })
+                        
+                        task.wait(0.5)
+                        TeleportService:TeleportToPlaceInstance(placeId, server.id, Player)
+                        found = true
+                        return
+                    end
+                end
+            end)
+            
+            if not success then
+                WindUI:Notify({
+                    Title = "⚠️ Error",
+                    Content = "Failed to search servers!",
+                    Duration = 3,
+                    Icon = "alert-triangle"
+                })
+            elseif not found then
+                WindUI:Notify({
+                    Title = "⚠️ No Server Found",
+                    Content = "No friends servers available!",
+                    Duration = 3,
+                    Icon = "alert-triangle"
+                })
+            end
+        end)
+    end
+})
+
+-- Teleport Tab
+local TeleportTab = Window:Tab({
+    Title = "Teleport",
+    Icon = "rocket",
+    Locked = false,
 })
 
 local TeleportSection = TeleportTab:Section({
@@ -149,34 +242,34 @@ local TeleportSection = TeleportTab:Section({
     Opened = true
 })
 
-local selectedLocation = nil
+local selectedIsland = nil
 local tweenSpeed = 100
 local isTeleporting = false
 local currentTween = nil
 
 local mapFolder = workspace:FindFirstChild("Map")
-local locationNames = {}
+local islandNames = {}
 
 if mapFolder then
     for _, item in pairs(mapFolder:GetChildren()) do
         if item:IsA("Model") then
-            table.insert(locationNames, item.Name)
+            table.insert(islandNames, item.Name)
         end
     end
 end
 
-if #locationNames == 0 then
-    locationNames = {"No locations available"}
+if #islandNames == 0 then
+    islandNames = {"No islands available"}
 end
 
 local TeleportDropdown = TeleportSection:Dropdown({
-    Title = "Locations",
-    Desc = "Select location to teleport",
-    Values = locationNames,
-    Value = locationNames[1],
-    Callback = function(option) 
-        selectedLocation = option
-        print("Location selected: " .. option)
+    Title = "Islands",
+    Desc = "Select island to teleport",
+    Values = islandNames,
+    Value = islandNames[1],
+    Callback = function(option)
+        selectedIsland = option
+        print("Island selected: " .. option)
     end
 })
 
@@ -187,7 +280,7 @@ TeleportSection:Slider({
     Value = {
         Min = 100,
         Max = 300,
-        Default = 100,
+        Default = 100
     },
     Callback = function(value)
         tweenSpeed = value
@@ -196,21 +289,165 @@ TeleportSection:Slider({
 })
 
 local TeleportToggle = TeleportSection:Toggle({
-    Title = "Teleport to Location",
+    Title = "Teleport to Island",
     Icon = "rocket",
     Default = false,
     Callback = function(state)
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/NovaAxis/Scripts/refs/heads/main/Game/Blox%20Fruits/TeleportToIsland.lua"))()
+        isTeleporting = state
+
+        local character = Player.Character
+        if not character then
+            TeleportToggle:Set(false)
+            return
+        end
+
+        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+        if not humanoidRootPart then
+            TeleportToggle:Set(false)
+            return
+        end
+
+        if state then
+            if not selectedIsland or selectedIsland == "No islands available" then
+                WindUI:Notify({
+                    Title = "⚠️ Error",
+                    Content = "Please select a valid island first!",
+                    Duration = 3,
+                    Icon = "alert-triangle"
+                })
+                TeleportToggle:Set(false)
+                return
+            end
+
+            local selectedModel = mapFolder:FindFirstChild(selectedIsland)
+            if not selectedModel then
+                WindUI:Notify({
+                    Title = "⚠️ Error",
+                    Content = "Island not found!",
+                    Duration = 3,
+                    Icon = "alert-triangle"
+                })
+                TeleportToggle:Set(false)
+                return
+            end
+
+            local teleportPosition
+            if selectedModel.PrimaryPart then
+                teleportPosition = selectedModel.PrimaryPart.Position
+            else
+                local firstPart = selectedModel:FindFirstChildOfClass("Part") or selectedModel:FindFirstChildOfClass("BasePart")
+                if firstPart then
+                    teleportPosition = firstPart.Position
+                end
+            end
+
+            if not teleportPosition then
+                WindUI:Notify({
+                    Title = "⚠️ Error",
+                    Content = "Could not find teleport point!",
+                    Duration = 3,
+                    Icon = "alert-triangle"
+                })
+                TeleportToggle:Set(false)
+                return
+            end
+
+            isTeleporting = true
+
+            -- Поднимаем на +50Y сначала
+            local liftPosition = humanoidRootPart.Position + Vector3.new(0, 50, 0)
+            local liftTweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local liftTween = TweenService:Create(humanoidRootPart, liftTweenInfo, {CFrame = CFrame.new(liftPosition)})
+            liftTween:Play()
+            liftTween.Completed:Wait()
+
+            -- Двигаем к острову, сохраняя +50Y
+            local finalPosition = Vector3.new(teleportPosition.X, teleportPosition.Y + 50, teleportPosition.Z)
+            local distance = (finalPosition - humanoidRootPart.Position).Magnitude
+            local duration = distance / tweenSpeed
+
+            local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+            currentTween = TweenService:Create(humanoidRootPart, tweenInfo, {CFrame = CFrame.new(finalPosition)})
+            currentTween:Play()
+
+            WindUI:Notify({
+                Title = "🌀 Teleporting",
+                Content = "Flying to " .. selectedIsland,
+                Duration = 3,
+                Icon = "send"
+            })
+
+            currentTween.Completed:Connect(function()
+                WindUI:Notify({
+                    Title = "✅ Arrived",
+                    Content = "Successfully reached " .. selectedIsland,
+                    Duration = 3,
+                    Icon = "check"
+                })
+                TeleportToggle:Set(false) -- Авто-выключение
+                isTeleporting = false
+            end)
+
+        else
+            if currentTween then
+                currentTween:Cancel()
+                currentTween = nil
+                WindUI:Notify({
+                    Title = "⏸️ Teleport Cancelled",
+                    Content = "Teleportation stopped",
+                    Duration = 3,
+                    Icon = "pause"
+                })
+            end
+        end
     end
 })
 
-local LocalPlayerTab = Window:Tab({
-    Title = "Local Player",
-    Icon = "user",
+
+local MiscTab = Window:Tab({
+    Title = "Misc",
+    Icon = "cog",
     Locked = false,
 })
 
-local LocalPlayerSection = LocalPlayerTab:Section({
+-- Local Player variables
+local currentWalkSpeed = 52
+local noclip = false
+local noclipConnection
+local infiniteJump = false
+local userInputService = game:GetService("UserInputService")
+local waterWalking = false
+local waterWalkingPart
+local waterWalkingConnection
+
+-- WalkSpeed Bypass - keep WalkSpeed after respawn
+Player.CharacterAdded:Connect(function(character)
+    task.wait(0.1)
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = currentWalkSpeed
+    end
+end)
+
+-- WalkSpeed Bypass via RunService (more reliable)
+RunService.RenderStepped:Connect(function()
+    if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        if Player.Character.Humanoid.WalkSpeed ~= currentWalkSpeed then
+            Player.Character.Humanoid.WalkSpeed = currentWalkSpeed
+        end
+    end
+end)
+
+-- Infinite Jump connection
+userInputService.JumpRequest:Connect(function()
+    if infiniteJump then
+        if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+            Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+        end
+    end
+end)
+
+local LocalPlayerSection = MiscTab:Section({
     Title = "Local Player",
     Icon = "user",
     Opened = true
@@ -220,19 +457,17 @@ LocalPlayerSection:Slider({
     Title = "WalkSpeed",
     Icon = "activity",
     Value = {
-        Min = 16,
-        Max = 100,
-        Default = 16,
+        Min = 52,
+        Max = 300,
+        Default = 52,
     },
     Callback = function(value)
+        currentWalkSpeed = value
         if Player.Character and Player.Character:FindFirstChild("Humanoid") then
             Player.Character.Humanoid.WalkSpeed = value
         end
     end
 })
-
-local noclip = false
-local noclipConnection
 
 LocalPlayerSection:Toggle({
     Title = "Noclip",
@@ -265,9 +500,6 @@ LocalPlayerSection:Toggle({
     end
 })
 
-local infiniteJump = false
-local userInputService = game:GetService("UserInputService")
-
 LocalPlayerSection:Toggle({
     Title = "Infinite Jump",
     Icon = "arrow-up",
@@ -277,13 +509,65 @@ LocalPlayerSection:Toggle({
     end
 })
 
-userInputService.JumpRequest:Connect(function()
-    if infiniteJump then
-        if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
-            Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+LocalPlayerSection:Toggle({
+    Title = "Walk On Water (Ice)",
+    Icon = "droplet",
+    Default = false,
+    Callback = function(state)
+        waterWalking = state
+        
+        if state then
+            local char = workspace.Characters:FindFirstChild(Player.Name)
+            if not char then
+                char = Player.Character
+            end
+            
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                waterWalkingPart = Instance.new("Part")
+                waterWalkingPart.Name = "WaterWalkingPart"
+                waterWalkingPart.Size = Vector3.new(10, 1, 10)
+                waterWalkingPart.Material = Enum.Material.Ice
+                waterWalkingPart.Transparency = 0.5
+                waterWalkingPart.Anchored = true
+                waterWalkingPart.CanCollide = false
+                waterWalkingPart.Parent = workspace
+                
+                waterWalkingConnection = RunService.RenderStepped:Connect(function()
+                    if waterWalking and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                        local char = workspace.Characters:FindFirstChild(Player.Name) or Player.Character
+                        if char and char:FindFirstChild("HumanoidRootPart") then
+                            local rootPart = char.HumanoidRootPart
+                            waterWalkingPart.CFrame = CFrame.new(rootPart.Position.X, rootPart.Position.Y - 4, rootPart.Position.Z)
+                        end
+                    end
+                end)
+                
+                WindUI:Notify({
+                    Title = "✅ Walk On Water ON",
+                    Content = "You can now walk on water!",
+                    Duration = 2,
+                    Icon = "droplet"
+                })
+            end
+        else
+            if waterWalkingConnection then
+                waterWalkingConnection:Disconnect()
+                waterWalkingConnection = nil
+            end
+            if waterWalkingPart then
+                waterWalkingPart:Destroy()
+                waterWalkingPart = nil
+            end
+            
+            WindUI:Notify({
+                Title = "⏸️ Walk On Water OFF",
+                Content = "Walk On Water disabled",
+                Duration = 2,
+                Icon = "droplet"
+            })
         end
     end
-end)
+})
 
 LocalPlayerSection:Button({
     Title = "FPS Boost",
@@ -331,12 +615,6 @@ LocalPlayerSection:Button({
             Icon = "gauge"
         })
     end
-})
-
-local MiscTab = Window:Tab({
-    Title = "Misc",
-    Icon = "cog",
-    Locked = false,
 })
 
 local MiscSection = MiscTab:Section({
@@ -398,7 +676,7 @@ local function RedeemCode(code)
     return ok, res
 end
 
-local selectedCode = ""
+local selectedCode = ALL_CODES[1]
 
 local CodeDropdown = MiscSection:Dropdown({
     Title = "Code",
@@ -537,9 +815,9 @@ InfoSection2:Button({
 -- Initialize notification
 WindUI:Notify({
     Title = "💫 NovaAxis Hub Loaded",
-    Content = "Hello, NovaAxis Hub User!",
+    Content = "Hub ready! Press RightShift to toggle menu.",
     Duration = 5,
     Icon = "sparkles"
 })
 
-print("NovaAxis Hub loaded successfully! Hello, NovaAxis Hub User!")
+print("NovaAxis Hub loaded successfully!")
