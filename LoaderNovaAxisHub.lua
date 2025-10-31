@@ -15,7 +15,7 @@ local games = {
         name = "Survive On A Raft",
         url = "https://raw.githubusercontent.com/NovaAxis/Scripts/refs/heads/main/Game/Survive%20On%20A%20Raft/Main.lua"
     },
-    [994732206] = {
+    [994732206] = { -- Blox Fruits
         name = "Blox Fruits",
         url = "https://raw.githubusercontent.com/NovaAxis/Scripts/refs/heads/main/Game/Blox%20Fruits/Main.lua"
     }
@@ -48,3 +48,4 @@ local function loadScript()
 end
 
 loadScript()
+
