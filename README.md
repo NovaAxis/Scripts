@@ -1,1 +1,1 @@
-## Hi, this is just an repository to post scripts that are **NOT EXPLOITS**.
+### This is just an repository to post scripts that are **NOT EXPLOITS**.
