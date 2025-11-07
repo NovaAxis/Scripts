@@ -1,28 +1,23 @@
--- Сервисы
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- Игрок и персонаж
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
--- Флаги функций
 local noclipEnabled = false
 local infiniteJumpEnabled = false
 local flyEnabled = false
 local currentWalkSpeed = 16
-local currentJumpHeight = 7.2 -- Стандартное значение JumpHeight
+local currentJumpHeight = 7.2
 local flySpeed = 50
 
--- Переменные для полёта
 local flyConnection
 local bodyVelocity
 local bodyGyro
 
--- Функция безопасного получения humanoid
 local function getHumanoid()
     if character and character:FindFirstChild("Humanoid") then
         return character.Humanoid
@@ -30,22 +25,18 @@ local function getHumanoid()
     return nil
 end
 
--- Функция обновления персонажа
 local function onCharacterAdded(char)
     character = char
     humanoid = char:WaitForChild("Humanoid")
     rootPart = char:WaitForChild("HumanoidRootPart")
     
-    -- Переключаем на JumpHeight если используется JumpPower
     if humanoid.UseJumpPower then
         humanoid.UseJumpPower = false
     end
     
-    -- Восстанавливаем настройки
     humanoid.WalkSpeed = currentWalkSpeed
     humanoid.JumpHeight = currentJumpHeight
     
-    -- Применяем noclip если был включен
     if noclipEnabled then
         for _, part in ipairs(character:GetDescendants()) do
             if part:IsA("BasePart") then
@@ -55,10 +46,8 @@ local function onCharacterAdded(char)
     end
 end
 
--- Подключаем обработчик появления персонажа
 player.CharacterAdded:Connect(onCharacterAdded)
 
--- Noclip цикл
 RunService.Stepped:Connect(function()
     if noclipEnabled and character then
         for _, part in ipairs(character:GetDescendants()) do
@@ -69,12 +58,10 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- Функция полёта
 local function toggleFly(state)
     flyEnabled = state
     
     if flyEnabled then
-        -- Создаём объекты для полёта
         bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
         bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
@@ -85,14 +72,12 @@ local function toggleFly(state)
         bodyGyro.P = 10000
         bodyGyro.Parent = rootPart
         
-        -- Цикл управления полётом
         flyConnection = RunService.Heartbeat:Connect(function()
             if not flyEnabled or not rootPart then return end
             
             local camera = workspace.CurrentCamera
             local moveDirection = Vector3.new(0, 0, 0)
             
-            -- Получаем направление движения
             if UserInputService:IsKeyDown(Enum.KeyCode.W) then
                 moveDirection = moveDirection + camera.CFrame.LookVector
             end
@@ -112,7 +97,6 @@ local function toggleFly(state)
                 moveDirection = moveDirection - Vector3.new(0, 1, 0)
             end
             
-            -- Применяем движение
             if moveDirection.Magnitude > 0 then
                 moveDirection = moveDirection.Unit
             end
@@ -121,7 +105,6 @@ local function toggleFly(state)
             bodyGyro.CFrame = camera.CFrame
         end)
     else
-        -- Отключаем полёт
         if flyConnection then
             flyConnection:Disconnect()
             flyConnection = nil
@@ -139,7 +122,6 @@ local function toggleFly(state)
     end
 end
 
--- Инициализация WindUI
 local WindUI
 do
     local ok, result = pcall(function() return require("./src/Init") end)
@@ -152,7 +134,6 @@ end
 
 WindUI:SetFont("rbxasset://fonts/families/RobotoMono.json")
 
--- Создание окна
 local Window = WindUI:CreateWindow({
     Title = "NovaAxis | Hub",
     Icon = "sparkles",
@@ -169,8 +150,8 @@ local Window = WindUI:CreateWindow({
         Draggable = true,
         OnlyMobile = false,
         Color = ColorSequence.new(
-            Color3.fromHex("be185d"),
-            Color3.fromHex("1f0308")
+            Color3.fromHex("3730a3"),
+            Color3.fromHex("1e1b4b")
         ),
     },
     User = {
@@ -329,7 +310,6 @@ MovementSection:Slider({
         currentJumpHeight = value
         local hum = getHumanoid()
         if hum then
-            -- Убеждаемся что используется JumpHeight
             if hum.UseJumpPower then
                 hum.UseJumpPower = false
             end
@@ -393,7 +373,6 @@ AbilitiesSection:Slider({
     end
 })
 
--- Infinite Jump обработчик
 UserInputService.JumpRequest:Connect(function()
     if infiniteJumpEnabled then
         local hum = getHumanoid()
@@ -403,7 +382,6 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- Очистка при выходе
 player.CharacterRemoving:Connect(function()
     if flyEnabled then
         toggleFly(false)
