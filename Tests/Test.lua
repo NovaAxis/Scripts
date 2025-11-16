@@ -1,3 +1,522 @@
+-- Сервисы
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+
+-- Игрок и персонаж
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+local camera = workspace.CurrentCamera
+
+-- Переменные
+local currentFOV = 60
+local currentWalkSpeed = 30
+local speedEnabled = false
+local flyEnabled = false
+local flySpeed = 10
+local tpWalkSpeed = 1
+local tpWalkEnabled = false
+local noclipEnabled = false
+local infiniteJumpEnabled = false
+local fullbrightEnabled = false
+
+-- Переменные для полёта
+local flyConnection
+local bodyVelocity
+local bodyGyro
+
+-- Сохраненные значения
+local originalFogEnd
+local originalFogStart
+local originalAmbient
+local originalBrightness
+local originalOutdoorAmbient
+
+-- Функция обновления персонажа
+local function onCharacterAdded(char)
+    character = char
+    humanoid = char:WaitForChild("Humanoid")
+    rootPart = char:WaitForChild("HumanoidRootPart")
+    
+    -- Восстанавливаем настройки
+    if speedEnabled then
+        humanoid.WalkSpeed = currentWalkSpeed
+    end
+    
+    -- Применяем noclip если был включен
+    if noclipEnabled then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end
+
+-- Подключаем обработчик появления персонажа
+player.CharacterAdded:Connect(onCharacterAdded)
+
+-- Noclip цикл
+RunService.Stepped:Connect(function()
+    if noclipEnabled and character then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Функция полёта
+local function toggleFly(state)
+    flyEnabled = state
+    
+    if flyEnabled then
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+        bodyVelocity.Parent = rootPart
+        
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(100000, 100000, 100000)
+        bodyGyro.P = 10000
+        bodyGyro.Parent = rootPart
+        
+        flyConnection = RunService.Heartbeat:Connect(function()
+            if not flyEnabled or not rootPart then return end
+            
+            local moveDirection = Vector3.new(0, 0, 0)
+            
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveDirection = moveDirection + camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveDirection = moveDirection - camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveDirection = moveDirection - camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveDirection = moveDirection + camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                moveDirection = moveDirection + Vector3.new(0, 1, 0)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                moveDirection = moveDirection - Vector3.new(0, 1, 0)
+            end
+            
+            if moveDirection.Magnitude > 0 then
+                moveDirection = moveDirection.Unit
+            end
+            
+            bodyVelocity.Velocity = moveDirection * flySpeed
+            bodyGyro.CFrame = camera.CFrame
+        end)
+    else
+        if flyConnection then
+            flyConnection:Disconnect()
+            flyConnection = nil
+        end
+        
+        if bodyVelocity then
+            bodyVelocity:Destroy()
+            bodyVelocity = nil
+        end
+        
+        if bodyGyro then
+            bodyGyro:Destroy()
+            bodyGyro = nil
+        end
+    end
+end
+
+-- Функция TP Walk (исправленная версия с TranslateBy)
+local tpWalkConnection
+local function toggleTPWalk(state)
+    tpWalkEnabled = state
+    
+    if tpWalkEnabled then
+        tpWalkConnection = RunService.Heartbeat:Connect(function(delta)
+            if not tpWalkEnabled or not humanoid or not character then return end
+            
+            if humanoid.MoveDirection.Magnitude > 0 then
+                -- Используем TranslateBy для плавного движения (метод из Infinite Yield)
+                character:TranslateBy(humanoid.MoveDirection * tpWalkSpeed * delta * 10)
+            end
+        end)
+    else
+        if tpWalkConnection then
+            tpWalkConnection:Disconnect()
+            tpWalkConnection = nil
+        end
+    end
+end
+
+-- Функция Fullbright
+local function toggleFullbright(state)
+    fullbrightEnabled = state
+    
+    if fullbrightEnabled then
+        -- Сохраняем оригинальные значения
+        originalFogEnd = Lighting.FogEnd
+        originalFogStart = Lighting.FogStart
+        originalAmbient = Lighting.Ambient
+        originalBrightness = Lighting.Brightness
+        originalOutdoorAmbient = Lighting.OutdoorAmbient
+        
+        -- Применяем fullbright
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2
+        Lighting.FogEnd = 100000
+        Lighting.FogStart = 0
+        Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+    else
+        -- Восстанавливаем оригинальные значения
+        if originalAmbient then
+            Lighting.Ambient = originalAmbient
+            Lighting.Brightness = originalBrightness
+            Lighting.FogEnd = originalFogEnd
+            Lighting.FogStart = originalFogStart
+            Lighting.OutdoorAmbient = originalOutdoorAmbient
+        end
+    end
+end
+
+-- Инициализация WindUI
+local WindUI
+do
+    local ok, result = pcall(function() return require("./src/Init") end)
+    if ok and result then
+        WindUI = result
+    else
+        WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/refs/heads/main/dist/main.lua"))()
+    end
+end
+
+-- Создание окна
+local Window = WindUI:CreateWindow({
+    Title = "NovaAxis | Hub",
+    Icon = "sparkles",
+    Author = "By CreatorNovaAxis | discord.gg/wAwgJatMMt",
+    Theme = "Indigo",
+    Resizable = true,
+    ScrollBarEnabled = true,
+    HideSearchBar = false,
+    OpenButton = {
+        Title = "NovaAxis | Hub",
+        CornerRadius = UDim.new(1, 0),
+        StrokeThickness = 3,
+        Enabled = true,
+        Draggable = true,
+        OnlyMobile = false,
+        Color = ColorSequence.new(
+            Color3.fromHex("3730a3"),
+            Color3.fromHex("1e1b4b")
+        ),
+    },
+    User = {
+        Enabled = true,
+        Anonymous = false,
+        Callback = function()
+            local playerObj = game.Players.LocalPlayer
+            if playerObj then
+                local nickname = playerObj.Name
+                setclipboard(nickname)
+                
+                WindUI:Notify({
+                    Title = "👤 Nickname Copied",
+                    Content = "Your Username '" .. nickname .. "' has been copied to the clipboard.",
+                    Duration = 3,
+                    Icon = "user",
+                })
+            else
+                warn("Player not found.")
+            end
+        end,
+    },
+})
+
+Window:SetToggleKey(Enum.KeyCode.RightShift)
+
+-- INFORMATION TAB
+local InformationTab = Window:Tab({
+    Title = "Information",
+    Icon = "info"
+})
+
+-- DISCORD NOVAAXIS SECTION
+local DiscordNovaAxisSection = InformationTab:Section({
+    Title = "NovaAxis | Hub Discord server",
+    Icon = "globe",
+    Opened = true,
+})
+
+DiscordNovaAxisSection:Button({
+    Title = "NovaAxis | Hub",
+    Desc = "Click to copy Discord invite link",
+    Icon = "sparkles",
+    Callback = function()
+        pcall(function() setclipboard("https://discord.gg/wAwgJatMMt") end)
+        WindUI:Notify({ 
+            Title = "✅ Copied", 
+            Content = "Discord invite link copied!", 
+            Duration = 3, 
+            Icon = "copy" 
+        })
+    end
+})
+
+-- DISCORD MEOW SECTION
+local DiscordMeowSection = InformationTab:Section({ 
+    Title = "Meow Discord server",
+    Icon = "globe",
+    Opened = true,
+})
+
+DiscordMeowSection:Button({
+    Title = "Meow",
+    Desc = "Click to copy Discord invite link",
+    Icon = "cat",
+    Callback = function()
+        pcall(function() setclipboard("https://discord.gg/WYyANHBgbZ") end)
+        WindUI:Notify({ 
+            Title = "✅ Copied", 
+            Content = "Discord invite link copied!", 
+            Duration = 3, 
+            Icon = "copy" 
+        })
+    end
+})
+
+-- UI LIBRARY SECTION
+local UISection = InformationTab:Section({ 
+    Title = "UI Library (Author)",
+    Icon = "palette",
+    Opened = true,
+})
+
+UISection:Button({
+    Title = "GitHub Author",
+    Desc = "Click to copy GitHub author link",
+    Icon = "palette",
+    Callback = function()
+        pcall(function() setclipboard("https://github.com/Footagesus") end)
+        WindUI:Notify({ 
+            Title = "✅ Copied", 
+            Content = "GitHub author link copied!", 
+            Duration = 3, 
+            Icon = "copy" 
+        })
+    end
+})
+
+-- MAIN TAB
+local MainTab = Window:Tab({
+    Title = "Main",
+    Icon = "house"
+})
+
+-- LOCAL PLAYER TAB
+local LocalPlayerTab = Window:Tab({
+    Title = "Local Player",
+    Icon = "circle-user",
+})
+
+-- SELF SECTION
+local SelfSection = LocalPlayerTab:Section({
+    Title = "Self",
+    Icon = "user",
+    Opened = true,
+})
+
+SelfSection:Toggle({
+    Title = "FOV",
+    Icon = "check",
+    Default = false,
+    Callback = function(state)
+        if state then
+            camera.FieldOfView = currentFOV
+        else
+            camera.FieldOfView = 70
+        end
+    end
+})
+
+SelfSection:Slider({
+    Title = "FOV",
+    Step = 1,
+    Value = {
+        Min = 10,
+        Max = 120,
+        Default = 60,
+    },
+    Callback = function(value)
+        currentFOV = value
+        camera.FieldOfView = value
+    end
+})
+
+-- MOVEMENT SECTION
+local MovementSection = LocalPlayerTab:Section({
+    Title = "Movement",
+    Icon = "user",
+    Opened = true,
+})
+
+MovementSection:Slider({
+    Title = "Walk Speed",
+    Step = 1,
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = 30,
+    },
+    Callback = function(value)
+        currentWalkSpeed = value
+        if speedEnabled and humanoid then
+            humanoid.WalkSpeed = value
+        end
+    end
+})
+
+MovementSection:Toggle({
+    Title = "Speed",
+    Icon = "check",
+    Default = false,
+    Callback = function(state)
+        speedEnabled = state
+        if humanoid then
+            if state then
+                humanoid.WalkSpeed = currentWalkSpeed
+            else
+                humanoid.WalkSpeed = 16
+            end
+        end
+    end
+})
+
+MovementSection:Toggle({
+    Title = "Fly",
+    Icon = "check",
+    Default = false,
+    Callback = function(state)
+        toggleFly(state)
+    end
+})
+
+MovementSection:Slider({
+    Title = "Fly Speed",
+    Step = 1,
+    Value = {
+        Min = 1,
+        Max = 100,
+        Default = 10,
+    },
+    Callback = function(value)
+        flySpeed = value
+    end
+})
+
+MovementSection:Slider({
+    Title = "TP Walk Speed",
+    Step = 0.1,
+    Value = {
+        Min = 0.1,
+        Max = 5,
+        Default = 1,
+    },
+    Callback = function(value)
+        tpWalkSpeed = value
+    end
+})
+
+MovementSection:Toggle({
+    Title = "TP Walk",
+    Icon = "check",
+    Default = false,
+    Callback = function(state)
+        toggleTPWalk(state)
+    end
+})
+
+MovementSection:Toggle({
+    Title = "Noclip",
+    Icon = "check",
+    Default = false,
+    Callback = function(state)
+        noclipEnabled = state
+        if character then
+            for _, part in ipairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = not state
+                end
+            end
+        end
+    end
+})
+
+MovementSection:Toggle({
+    Title = "Infinite Jump",
+    Icon = "check",
+    Default = false,
+    Callback = function(state)
+        infiniteJumpEnabled = state
+    end
+})
+
+-- USEFUL STUFF SECTION
+local UsefulSection = LocalPlayerTab:Section({
+    Title = "Useful Stuff",
+    Icon = "star",
+    Opened = true,
+})
+
+UsefulSection:Toggle({
+    Title = "Fullbright",
+    Icon = "check",
+    Default = false,
+    Callback = function(state)
+        toggleFullbright(state)
+    end
+})
+
+UsefulSection:Button({
+    Title = "Remove Fog",
+    Icon = "mouse-pointer-click",
+    Callback = function()
+        Lighting.FogEnd = 100000
+        Lighting.FogStart = 0
+        WindUI:Notify({
+            Title = "✅ Fog Removed",
+            Content = "Fog has been removed from the game.",
+            Duration = 2,
+            Icon = "cloud-off",
+        })
+    end
+})
+
+UsefulSection:Button({
+    Title = "Remove Sky",
+    Icon = "mouse-pointer-click",
+    Callback = function()
+        for _, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("Sky") then
+                v:Destroy()
+            end
+        end
+        WindUI:Notify({
+            Title = "✅ Sky Removed",
+            Content = "Sky has been removed from the game.",
+            Duration = 2,
+            Icon = "cloud",
+        })
+    end
+})
+
 -- THEME TAB
 local ThemeTab = Window:Tab({
     Title = "Theme",
@@ -583,3 +1102,22 @@ ThemeSection:Dropdown({
         WindUI:SetTheme(option)
     end
 })
+
+-- Infinite Jump обработчик
+UserInputService.JumpRequest:Connect(function()
+    if infiniteJumpEnabled and humanoid then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- Очистка при выходе
+player.CharacterRemoving:Connect(function()
+    if flyEnabled then
+        toggleFly(false)
+    end
+    if tpWalkEnabled then
+        toggleTPWalk(false)
+    end
+end)
+
+Window:SelectTab(1)
