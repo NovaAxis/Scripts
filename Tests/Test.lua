@@ -188,11 +188,15 @@ end
 
 -- Инициализация WindUI
 local WindUI
+
 do
-    local ok, result = pcall(function() return require("./src/Init") end)
-    if ok and result then
+    local ok, result = pcall(function()
+        return require("./src/Init")
+    end)
+    
+    if ok then
         WindUI = result
-    else
+    else 
         WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/NovaAxis/WindUI/refs/heads/main/dist/main.lua"))()
     end
 end
