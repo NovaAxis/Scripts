@@ -187,15 +187,7 @@ local function toggleFullbright(state)
 end
 
 -- Инициализация WindUI
-local WindUI
-do
-    local ok, result = pcall(function() return require("./src/Init") end)
-    if ok and result then
-        WindUI = result
-    else
-        WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/NovaAxis/WindUI/refs/heads/main/dist/main.lua"))()
-    end
-end
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
 -- Создание окна
 local Window = WindUI:CreateWindow({
