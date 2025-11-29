@@ -4,8 +4,8 @@ local games = {
     [8170321325] = "Steal%20A%20Cat/Main.lua",
     [8166233521] = "Survive%20On%20A%20Raft/Main.lua",
     [994732206]  = "Blox%20Fruits/Main.lua",
-    [7738927312]  = "Build%20A%20Bunker/Main.lua"
-    [3457700596] = "Fruit%20Battlegrounds/Main.lua"
+    [7738927312]  = "Build%20A%20Bunker/Main.lua",
+    [3457700596] = "Fruit%20Battlegrounds/Main.lua",
 }
 
 local url = games[game.GameId]
